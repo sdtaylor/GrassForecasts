@@ -175,14 +175,22 @@ class CMIP_FTP_TOOL:
         Turn the different components into:
         ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/ccsm4/rcp85/day/r1i1p1/pr/BCCAv2_0.125deg_pr_day_CCSM4_rcp85_r1i1p1_20060101-20151231.nc4
         """
+        # Precip got an update due to an error, thus has a different prefix
+        if variable == 'pr':
+            file_prefix = 'BCCAv2_0'
+        else:
+            file_prefix = 'BCCA_0'
+            
         decade_start = self.available_decades[decade][0]
         decade_end   = self.available_decades[decade][1]
-        filename = 'BCCAv2_0.125deg_{v}_day_{m}_{s}_{r}_{d1}-{d2}.nc4'.format(v = variable,
-                                                                              m = climate_model.upper(),
-                                                                              s = scenario,
-                                                                              r = run,
-                                                                              d1= decade_start,
-                                                                              d2= decade_end)
+        filename = '{p}.125deg_{v}_day_{m}_{s}_{r}_{d1}-{d2}.nc4'.format(p=file_prefix,
+                                                                         v = variable,
+                                                                         m = climate_model.upper(),
+                                                                         s = scenario,
+                                                                         r = run,
+                                                                         d1= decade_start,
+                                                                         d2= decade_end)
+        
         return 'ftp://{h}/{b}/{m}/{s}/day/{r}/{v}/{f}'.format(h=self.host,
                                                               b=self.base_url_dir,
                                                               m=climate_model,

@@ -1,7 +1,31 @@
 from ftplib import FTP
 import os
 import time
+import glob
 import urllib.request
+
+cmip5_info = {'available_models' :    ['canesm2','ccsm4','csiro-mk3-6-0','gfdl-esm2g',
+                                       'miroc5','ipsl-cm5a-lr'],
+              'available_variabels' : ['pr','tasmax','tasmin'],
+              'available_scenarios' : ['rcp26','rcp45','rcp60','rcp85'],
+
+              # The ftp files are split by the following 10 year periods
+              #                                 startdate, endate
+              'available_decades' : {'2006' : ['20060101','20151231'],
+                                     '2016' : ['20160101','20251231'],
+                                     '2026' : ['20260101','20351231'],
+                                     '2036' : ['20360101','20451231'],
+                                     '2046' : ['20460101','20551231'],
+                                     '2056' : ['20560101','20651231'],
+                                     '2066' : ['20660101','20751231'],
+                                     '2076' : ['20760101','20851231'],
+                                     '2086' : ['20860101','20951231'],
+                                     '2096' : ['20960101','21001231']}
+              }
+
+
+
+
 
 class CMIP_FTP_TOOL:
     def __init__(self, 
@@ -38,23 +62,10 @@ class CMIP_FTP_TOOL:
         
         self.connect()
         
-        self.available_models = ['canesm2','ccsm4','csiro-mk3-6-0','gfdl-esm2g',
-                                 'miroc5','ipsl-cm5a-lr']
-        self.available_variabels = ['pr','tasmax','tasmin']
-        self.available_scenarios = ['rcp26','rcp45','rcp60','rcp85']
-
-        # The ftp files are split by the following 10 year periods
-        #                                    startdate, endate
-        self.available_decades = {'2006' : ['20060101','20151231'],
-                                  '2016' : ['20160101','20251231'],
-                                  '2026' : ['20260101','20351231'],
-                                  '2036' : ['20360101','20451231'],
-                                  '2046' : ['20460101','20551231'],
-                                  '2056' : ['20560101','20651231'],
-                                  '2066' : ['20660101','20751231'],
-                                  '2076' : ['20760101','20851231'],
-                                  '2086' : ['20860101','20951231'],
-                                  '2096' : ['20960101','21001231']}
+        self.available_models    = cmip5_info['available_models']
+        self.available_variables = cmip5_info['available_variables']
+        self.available_scenarios = cmip5_info['available_scenarios']
+        self.available_decades   = cmip5_info['available_decades']
     
     def _query_ftp_folder(self, folder, attempts_made=0):
         connect_attempts=5
@@ -207,9 +218,21 @@ class CMIP_FTP_TOOL:
         pass
 
 
+def cmip_file_query(folder):
+    file_list = glob.glob(folder+'/*nc4')
+    all_file_info = []
+    for f in file_list:
+        filename = os.path.basename(f)
+        parts = filename.split('_')
+        file_info = {'model'   : parts[4].lower(),
+                     'scenario': parts[5],
+                     'variable': parts[2],
+                     'run'     : parts[6],
+                     'decade'  : parts[7][0:4],
+                     'full_path': f,
+                     'filename':filename}
+        
+        all_file_info.append(file_info)
 
-
-
-
-
+    return all_file_info
 

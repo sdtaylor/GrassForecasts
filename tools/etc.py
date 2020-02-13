@@ -25,35 +25,33 @@ def compile_model_scenario(model_name, scenario, run):
 def tile_array_to_shape():
     pass
 
-def create_et_dataset(temp):
-    """Return an xarray dataset containing
+def create_et_data_array(tmin, tmax, radiation):
+    """
+    Calculate evapotranspiration and return a dataarray of the same shape
+    as the inputs.
+    
+    Hargreaves function has the form:
+    et_utils.hargreaves(tmin, tmax, et_rad)
+    """
+    return xr.apply_ufunc(et_utils.hargreaves,
+                          tmin, tmax, radiation,
+                          dask='allowed').rename('et')
+    
+def create_radiation_data_array(ref):
+    """Return an xarray datarray containing
     
     coords: 
         time, latitude, longitude
 
     variables:
-        et     (time, latitude, longitude)
+        radiation     (time, latitude, longitude)
         
-    temp should be an xarray dataset with the same coordinates and the
-    data variables tasmax, and tasmin.
+    ref should be an xarray dataset with the same coordinates
     """
+    lat_array = np.tile(ref.latitude.values, (ref.dims['time'],1))
     
-    # et_array = np.empty((doy_array.shape[0],ref.latitude.shape[0],ref.longitude.shape[0]))
-    
-    # et = xr.Dataset(data_vars = {'et':(('doy','latitude','longitude'),et_array)},
-    #                 coords    = {'doy':doy_array,
-    #                              'latitude':ref.latitude.values,
-    #                              'longitude':ref.longitude.values})
-    #lat_array = np.tile(temp.latitude.values, (temp.dims['time'], temp.dims['longitude'],1)).T
-    
-    # Create a radiation array of dimensions (latitude,time) fro 
-    # the daily radiation values. This does not need longtitude since the
-    # radiation equation does not vary with that, and excluding longitude
-    # here saves a lot of memory and processing time.
-    lat_array = np.tile(temp.latitude.values, (temp.dims['time'],1))
-    
-    doy_array = pd.to_datetime(temp.time.values).dayofyear.values
-    doy_array = np.tile(doy_array, (temp.dims['latitude'],1)).T
+    doy_array = pd.to_datetime(ref.time.values).dayofyear.values
+    doy_array = np.tile(doy_array, (ref.dims['latitude'],1)).T
     
     latitude_radians = et_utils.deg2rad(lat_array)
     solar_dec = et_utils.sol_dec(doy_array)
@@ -63,13 +61,30 @@ def create_et_dataset(temp):
     
     radiation = et_utils.et_rad(latitude_radians, solar_dec, sha, ird)
     # Now copy radiation to all longitudes, align, and join back in
-    radiation = np.repeat(radiation[:,:,np.newaxis], repeats=temp.dims['longitude'], axis=2)
+    radiation = np.repeat(radiation[:,:,np.newaxis], repeats=ref.dims['longitude'], axis=2)
 
-    temp = temp.assign(radiation = (('time','latitude','longitude'),radiation))
-   
-    et = et_utils.hargreaves(tmin =   temp.tasmin.values, 
-                             tmax =   temp.tasmax.values,
-                             et_rad = radiation)
+    return xr.DataArray(radiation, name='radiation',
+                        dims =   ('time','latitude','longitude'),
+                        coords = {'latitude':ref.latitude,
+                                  'longitude': ref.longitude,
+                                  'time': ref.time})
+
+
+if __name__ == "__main__":
+    # Some testing stuff
+     
+    temp = xr.open_dataset('data/test_dataset.nc4', chunks={'latitude':2,'longitude':2,'time':30})
+    
+    # One of the big datasets, if available
+    # temp = xr.open_mfdataset(['data/cmip5_nc_files/BCCA_0.125deg_tasmin_day_CCSM4_rcp26_r1i1p1_20060101-20151231.nc4',
+    #                           'data/cmip5_nc_files/BCCA_0.125deg_tasmax_day_CCSM4_rcp26_r1i1p1_20060101-20151231.nc4',
+    #                           'data/cmip5_nc_files/BCCAv2_0.125deg_pr_day_CCSM4_rcp26_r1i1p1_20060101-20151231.nc4'], 
+    #                          chunks={'latitude':100,'longitude':100,'time':500})
+    
+    rad  = create_radiation_data_array(ref = temp)
+    
+    # compute is because it gets returned as a dask future
+    et = create_et_data_array(temp.tasmin, temp.tasmax, rad).compute()
 
 
 

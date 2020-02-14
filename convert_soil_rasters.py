@@ -34,18 +34,65 @@ target_array = reference.pr.isel(time=1)
 target_array['longitude'] = target_array.longitude - 360
 target_array['latitude'] = target_array.latitude
 
+
+
+###################################################
+###################################################
 soil_rasters = {'Wcap':'data/soil_rasters/fieldcap.dat',
                 'Wp'  :'data/soil_rasters/wiltpont.dat'}
-converted = []
+soil_vars = []
 for var, filename in soil_rasters.items():
     ds = xr.open_rasterio(filename)
     ds = ds.rename({'x':'longitude','y':'latitude'})
     ds = ds.sel(band=1)
-    converted.append(spatial_downscale(ds=ds, target_array=target_array).rename(var))
     
-both = xr.merge(converted)
+    scaled_ds = spatial_downscale(ds=ds, target_array=target_array).rename(var)
+    # 
+    na_value = ds.attrs['nodatavals'][0]
+    scaled_ds = scaled_ds.where(scaled_ds!= na_value)
+    
+    soil_vars.append(scaled_ds)
+    
+    
+###################################################
+# May or may not process MAP here
+###################################################
+
+# precip_rasters = {'m01':'data/annual_precip/wc2.0_10m_prec_01.tif',
+#                   # 'm02':'data/annual_precip/wc2.0_10m_prec_02.tif',
+#                   # 'm03':'data/annual_precip/wc2.0_10m_prec_03.tif',
+#                   # 'm04':'data/annual_precip/wc2.0_10m_prec_04.tif',
+#                   # 'm05':'data/annual_precip/wc2.0_10m_prec_05.tif',
+#                   # 'm06':'data/annual_precip/wc2.0_10m_prec_06.tif',
+#                   # 'm07':'data/annual_precip/wc2.0_10m_prec_07.tif',
+#                   # 'm08':'data/annual_precip/wc2.0_10m_prec_08.tif',
+#                   # 'm09':'data/annual_precip/wc2.0_10m_prec_09.tif',
+#                   # 'm10':'data/annual_precip/wc2.0_10m_prec_10.tif',
+#                   # 'm11':'data/annual_precip/wc2.0_10m_prec_11.tif',
+#                   'm12':'data/annual_precip/wc2.0_10m_prec_12.tif'
+#                   }
+
+# precip_vars = []
+# for var, filename in precip_rasters.items():
+#     ds = xr.open_rasterio(filename)
+#     ds = ds.rename({'x':'longitude','y':'latitude'})
+#     ds = ds.sel(band=1)
+    
+#     scaled_ds = spatial_downscale(ds=ds, target_array=target_array).rename(var)
+#     # 
+#     na_value = ds.attrs['nodatavals'][0]
+#     scaled_ds = scaled_ds.where(scaled_ds != na_value) 
+    
+#     precip_vars.append(scaled_ds)
+    
+    
+both = xr.merge(soil_vars)
 
 assert np.all(both.latitude == reference.latitude), 'latitude in new soil datasets not lining up'
 assert np.all(both.longitude == reference.longitude), 'longitude in new soil datasets not lining up'
 
 both.to_netcdf('data/soil_variables.nc')
+
+
+
+

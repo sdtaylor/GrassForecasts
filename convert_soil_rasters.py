@@ -48,4 +48,4 @@ both = xr.merge(converted)
 assert np.all(both.latitude == reference.latitude), 'latitude in new soil datasets not lining up'
 assert np.all(both.longitude == reference.longitude), 'longitude in new soil datasets not lining up'
 
-both.to_netcdf('data/soil_variable.nc')
+both.to_netcdf('data/soil_variables.nc')

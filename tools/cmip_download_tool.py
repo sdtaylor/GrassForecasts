@@ -6,7 +6,7 @@ import urllib.request
 
 cmip5_info = {'available_models' :    ['canesm2','ccsm4','csiro-mk3-6-0','gfdl-esm2g',
                                        'miroc5','ipsl-cm5a-lr'],
-              'available_variabels' : ['pr','tasmax','tasmin'],
+              'available_variables' : ['pr','tasmax','tasmin'],
               'available_scenarios' : ['rcp26','rcp45','rcp60','rcp85'],
 
               # The ftp files are split by the following 10 year periods

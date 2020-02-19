@@ -2,12 +2,45 @@ from GrasslandModels import et_utils
 import numpy as np
 import pandas as pd
 import xarray as xr
+import glob
+import os
 
 import dask.array as da
 
 
-def compile_model_scenario(model_name, scenario, run):
-    """Return an xarray object with the attributes
+
+def cmip_file_query(folder):
+    file_list = glob.glob(folder+'/*.nc4')
+    all_file_info = []
+    for f in file_list:
+        filename = os.path.basename(f)
+        parts = filename.split('_')
+        file_info = {'model'   : parts[4].lower(),
+                     'scenario': parts[5],
+                     'variable': parts[2],
+                     'run'     : parts[6],
+                     'decade'  : parts[7][0:4],
+                     'full_path': f,
+                     'filename':filename}
+        
+        all_file_info.append(file_info)
+
+    return all_file_info
+
+def compile_model_scenario(available_files,
+                           model_name='ccsm4', scenario='rcp26', run='r1i1p1', 
+                           chunks = {'latitude':100, 'longitude':100}):
+    """
+    Put together an xr dataset suitable for GrasslandModel predictions.
+    model_name, scneario, and run should be strings refering to cmip5 stuff.
+    
+    available_files should be a dictionary output by cmip_file_query()
+    
+    chunks is passed to xarray. note a chunked array is returned so it needs values
+    or compute() called to make the various calculations run.
+    
+    
+    Return an xarray object with the attributes
     
     coords: time, latitude, longitude
     
@@ -19,8 +52,34 @@ def compile_model_scenario(model_name, scenario, run):
     Wcap   (latitude, longitude)
     MAP    (latitude, longitude)
     """
-    pass
+    #TODO: need 15 day running mean on tmean.
+    # maybe change the var names here to what phenograss expects
+    files = pd.DataFrame(available_files)
+    
+    datasets = []
+    for var in ['tasmin','tasmax','pr']:
+        file_paths = files.query('variable==@var & model==@model_name & scenario==@scenario & run==@run')
+        # If there is > 1 then it should be for multiple dates
+        if len(file_paths) > 1:
+            assert len(file_paths.decade.unique()) == len(file_paths)
+        elif len(file_paths) == 0:
+            raise RuntimeError('model scenario/run/variable not found')
+        
+        datasets.append(xr.combine_by_coords([xr.open_dataset(f, chunks=chunks) for f in file_paths.full_path]))
+    
+    
+    datasets = xr.merge(datasets)
 
+    rad  = create_radiation_data_array(ref = datasets).chunk(chunks)
+    
+    # compute is because it gets returned as a dask future
+    #et = create_et_data_array(datasets.tasmin, datasets.tasmax, rad).compute().chunk(chunks)
+    et = create_et_data_array(datasets.tasmin, datasets.tasmax, rad).chunk(chunks)
+    
+    # Includes Wp,Wcap & MAP
+    other_vars = xr.open_dataset('data/other_variables.nc', chunks=chunks)
+
+    return xr.merge([datasets, et, rad, other_vars])
 
 def tile_array_to_shape():
     pass

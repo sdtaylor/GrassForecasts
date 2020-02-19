@@ -14,9 +14,12 @@ for m in models:
     for s in scenarios:
         for v in variables:
             
+            print('Model: {m}, scenario: {s}, var: {v}'.format(m=m,
+                                                               s=s,
+                                                               v=v))
             cmip.download_cmip5_file(scenario = s,
                                      climate_model=m,
                                      variable = v,
                                      decades = decades,
                                      n_runs=max_runs,
-                                     dest_folder = './data/')
+                                     dest_folder = './data/cmip5_nc_files/')

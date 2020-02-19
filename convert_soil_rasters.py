@@ -40,7 +40,7 @@ target_array['latitude'] = target_array.latitude
 ###################################################
 soil_rasters = {'Wcap':'data/soil_rasters/fieldcap.dat',
                 'Wp'  :'data/soil_rasters/wiltpont.dat'}
-soil_vars = []
+all_variable_datasets = []
 for var, filename in soil_rasters.items():
     ds = xr.open_rasterio(filename)
     ds = ds.rename({'x':'longitude','y':'latitude'})
@@ -51,47 +51,51 @@ for var, filename in soil_rasters.items():
     na_value = ds.attrs['nodatavals'][0]
     scaled_ds = scaled_ds.where(scaled_ds!= na_value)
     
-    soil_vars.append(scaled_ds)
+    all_variable_datasets.append(scaled_ds)
     
     
 ###################################################
 # May or may not process MAP here
 ###################################################
 
-# precip_rasters = {'m01':'data/annual_precip/wc2.0_10m_prec_01.tif',
-#                   # 'm02':'data/annual_precip/wc2.0_10m_prec_02.tif',
-#                   # 'm03':'data/annual_precip/wc2.0_10m_prec_03.tif',
-#                   # 'm04':'data/annual_precip/wc2.0_10m_prec_04.tif',
-#                   # 'm05':'data/annual_precip/wc2.0_10m_prec_05.tif',
-#                   # 'm06':'data/annual_precip/wc2.0_10m_prec_06.tif',
-#                   # 'm07':'data/annual_precip/wc2.0_10m_prec_07.tif',
-#                   # 'm08':'data/annual_precip/wc2.0_10m_prec_08.tif',
-#                   # 'm09':'data/annual_precip/wc2.0_10m_prec_09.tif',
-#                   # 'm10':'data/annual_precip/wc2.0_10m_prec_10.tif',
-#                   # 'm11':'data/annual_precip/wc2.0_10m_prec_11.tif',
-#                   'm12':'data/annual_precip/wc2.0_10m_prec_12.tif'
-#                   }
+precip_rasters = {1:'data/annual_precip/wc2.0_10m_prec_01.tif',
+                  2:'data/annual_precip/wc2.0_10m_prec_02.tif',
+                  3:'data/annual_precip/wc2.0_10m_prec_03.tif',
+                  4:'data/annual_precip/wc2.0_10m_prec_04.tif',
+                  5:'data/annual_precip/wc2.0_10m_prec_05.tif',
+                  6:'data/annual_precip/wc2.0_10m_prec_06.tif',
+                  7:'data/annual_precip/wc2.0_10m_prec_07.tif',
+                  8:'data/annual_precip/wc2.0_10m_prec_08.tif',
+                  9:'data/annual_precip/wc2.0_10m_prec_09.tif',
+                 10:'data/annual_precip/wc2.0_10m_prec_10.tif',
+                 11:'data/annual_precip/wc2.0_10m_prec_11.tif',
+                 12:'data/annual_precip/wc2.0_10m_prec_12.tif'
+                  }
 
-# precip_vars = []
-# for var, filename in precip_rasters.items():
-#     ds = xr.open_rasterio(filename)
-#     ds = ds.rename({'x':'longitude','y':'latitude'})
-#     ds = ds.sel(band=1)
+precip_vars = []
+for month, filename in precip_rasters.items():
+    ds = xr.open_rasterio(filename)
+    ds = ds.rename({'x':'longitude','y':'latitude'})
+    ds = ds.sel(band=1)
     
-#     scaled_ds = spatial_downscale(ds=ds, target_array=target_array).rename(var)
-#     # 
-#     na_value = ds.attrs['nodatavals'][0]
-#     scaled_ds = scaled_ds.where(scaled_ds != na_value) 
+    scaled_ds = spatial_downscale(ds=ds, target_array=target_array).rename('precip')
+    # 
+    na_value = ds.attrs['nodatavals'][0]
+    scaled_ds = scaled_ds.where(scaled_ds != na_value) 
     
-#     precip_vars.append(scaled_ds)
+    scaled_ds = scaled_ds.expand_dims('month').assign_coords(month = ([month]))
+    precip_vars.append(scaled_ds)
     
-    
-both = xr.merge(soil_vars)
+# Mean annual precip is the sum of mean monthly precip
+MAP = xr.concat(precip_vars, dim='month').sum('month').rename('MAP')
+all_variable_datasets.append(MAP)
 
-assert np.all(both.latitude == reference.latitude), 'latitude in new soil datasets not lining up'
-assert np.all(both.longitude == reference.longitude), 'longitude in new soil datasets not lining up'
+all_variables = xr.merge(all_variable_datasets)
 
-both.to_netcdf('data/soil_variables.nc')
+assert np.all(all_variables.latitude == reference.latitude), 'latitude in new soil datasets not lining up'
+assert np.all(all_variables.longitude == reference.longitude), 'longitude in new soil datasets not lining up'
+
+all_variables.to_netcdf('data/other_variables.nc')
 
 
 

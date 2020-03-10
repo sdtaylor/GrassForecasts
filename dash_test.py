@@ -12,25 +12,41 @@ import numpy as np
 import geopandas as gp
 import json
 
+#################################################                                    
+#################################################
+# Loading data for the map and figures
+#################################################                                    
+#################################################
 with open('usa_latlon_grid.geojson','r') as f:
     us_grid = json.load(f)
 
 n_features = len(us_grid['features'])
 [f.update(id=i) for i,f in enumerate(us_grid['features'])]
 
-latlon_df = pd.read_csv('data/NE_CO_phenograss.csv')
-pixel_ids = latlon_df[['latitude','longitude']].drop_duplicates().reset_index()
+reference_years = list(range(2010,2020))
+min_year = 2010
+
+phenograss_data = pd.read_csv('data/NE_CO_phenograss.csv')
+phenograss_data = phenograss_data[phenograss_data.year >= min_year]
+
+pixel_ids = phenograss_data[['latitude','longitude']].drop_duplicates().reset_index()
 pixel_ids['pixel_id'] = pixel_ids.index
+phenograss_data = pd.merge(phenograss_data ,pixel_ids, on=['latitude','longitude'], how='left')
 
+# TODO: adjust to anomaly via reference years
 
-#latlon_df['year'] = pd.DatetimeIndex(latlon_df.time).year
-#latlon_df = latlon_df.groupby(['year','latitude','longitude']).tasmax.mean().reset_index()
-latlon_df = pd.merge(latlon_df ,pixel_ids, on=['latitude','longitude'], how='left')
+reference_values = phenograss_data[phenograss_data.year.isin(reference_years)]
+map_data = phenograss_data.groupby(['pixel_id']).annual_productivity.mean().reset_index()
 
-selectable_years = latlon_df.decade.drop_duplicates()
-selectable_scenarios = latlon_df.scenario.drop_duplicates().to_list()
+#################################################                                    
+#################################################
+# Define the different components
+#################################################                                    
+#################################################
 
-map_color = latlon_df.groupby(['decade','pixel_id']).phenograss_prediction.mean().reset_index()
+selectable_years = phenograss_data.year.drop_duplicates()
+selectable_scenarios = phenograss_data.scenario.drop_duplicates().to_list()
+climate_models = phenograss_data.model.unique()
 
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -40,6 +56,7 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 page_title_text = html.Div([html.H1("Grassland Productivity Long Term Forecast")],
                                 style={'textAlign': "center", "padding-bottom": "30"})
 
+year_slider_labels = list(range(selectable_years.min(), selectable_years.max(), 5))
 year_slider_container = html.Div(id='year-slider-container',
                                 children = [
                                     html.P(
@@ -47,13 +64,13 @@ year_slider_container = html.Div(id='year-slider-container',
                                         children='Drag the slider the the descired decade',
                                         ),
                                     dcc.Slider(
-                                        id='decade-slider',
+                                        id='year-slider',
                                         min=min(selectable_years),
                                         max=max(selectable_years),
                                         value=min(selectable_years),
                                         marks={
                                             year: {'label':str(year)}
-                                             for year in selectable_years}
+                                             for year in year_slider_labels}
                                         )], style={'width':'50%'})
 
 scenario_radio_container = html.Div(id='scenario-radio-container',
@@ -63,8 +80,9 @@ scenario_radio_container = html.Div(id='scenario-radio-container',
                                             children = 'Select a scenario'
                                             ),
                                         dcc.RadioItems(
-                                            options = [{'label':s,'value':s} for s in latlon_df.scenario.unique()],
-                                            value  = latlon_df.scenario.unique()[0]
+                                            id='scenario-select',
+                                            options = [{'label':s,'value':s} for s in selectable_scenarios],
+                                            value  = selectable_scenarios[0]
                                             )
                                         ])
 
@@ -104,8 +122,13 @@ markdown_container = html.Div([
                            html.Pre(id='click-output')
                            ]
                            )
-                                          
 
+#################################################                                    
+#################################################
+# Define layout of all components
+#################################################                                    
+#################################################
+                           
 app.layout = html.Div(id='page-container',
                       children=[
                           
@@ -131,7 +154,12 @@ app.layout = html.Div(id='page-container',
                           ], style={'align-items':'center',
                                     'justify-content':'center'})
                                  
-                                 
+#################################################                                    
+#################################################
+# Interactions / callbacks
+#################################################                                    
+#################################################                        
+                              
 @app.callback(
     dash.dependencies.Output('click-output', 'children'),
     [dash.dependencies.Input('map', 'clickData')])
@@ -142,19 +170,20 @@ def display_click_data(clickData):
 @app.callback(
     dash.dependencies.Output('timeseries', 'figure'),
     [dash.dependencies.Input('map', 'clickData'),
-     dash.dependencies.Input("decade-slider", "value")])
-def update_timeseries(clickData, decade):
+     dash.dependencies.Input('scenario-select', 'value'),
+     dash.dependencies.Input("year-slider", "value")])
+def update_timeseries(clickData, scenario, year):
     print(clickData)
     selected_pixel = clickData['points'][0]['location']
     print(selected_pixel)
-    pixel_data = latlon_df[(latlon_df.pixel_id==selected_pixel) & (latlon_df.decade==decade)]
+    pixel_data = phenograss_data[(phenograss_data.pixel_id==selected_pixel) & (phenograss_data.scenario==scenario) & (phenograss_data.year<=year)]
     
     traces = []
-    for scenario in selectable_scenarios:
-        scenario_data = pixel_data[pixel_data.scenario==scenario]
-        traces.append(go.Scatter(x=scenario_data.doy, y=scenario_data.phenograss_prediction,
+    for model in climate_models:
+        model_data = pixel_data[pixel_data.model==model]
+        traces.append(go.Scatter(x=model_data.year, y=model_data.annual_productivity,
                                  mode='lines+markers',
-                                 name=scenario))
+                                 name=model))
     
     
     #trace = go.Scatter(x=pixel_data.year, y=pixel_data.tasmax)
@@ -163,14 +192,14 @@ def update_timeseries(clickData, decade):
 
 @app.callback(
     dash.dependencies.Output("map", "figure"),
-    [dash.dependencies.Input("decade-slider", "value")]
+    [dash.dependencies.Input("year-slider", "value")]
 )
-def update_figure(decade):
-    dff = map_color[map_color.decade==decade]
+def update_map(year):
+    dff = map_data
     
     trace = go.Choropleth(
                     geojson=us_grid,
-                    z = dff['phenograss_prediction'],
+                    z = dff['annual_productivity'],
                     locations = dff['pixel_id'],
                     featureidkey='id',
                     locationmode='geojson-id'
@@ -180,6 +209,9 @@ def update_figure(decade):
     return {"data": [trace],
              "layout": go.Layout(title='layout title',height=500,width=700,geo_scope='usa',geo={'showframe': False,'showcoastlines': False})}
 
+
+#################################################                                    
+#################################################
 if __name__ == '__main__':
     app.run_server(debug=True)
     

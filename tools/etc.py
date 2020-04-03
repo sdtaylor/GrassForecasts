@@ -96,7 +96,7 @@ def create_et_data_array(tmin, tmax, radiation):
                           tmin, tmax, radiation,
                           dask='allowed').rename('et')
     
-def create_radiation_data_array(ref):
+def create_radiation_data_array(time, doy, latitude, longitude):
     """Return an xarray datarray containing
     
     coords: 
@@ -107,10 +107,9 @@ def create_radiation_data_array(ref):
         
     ref should be an xarray dataset with the same coordinates
     """
-    lat_array = np.tile(ref.latitude.values, (ref.dims['time'],1))
+    lat_array = np.tile(latitude, (time.shape[0],1))
     
-    doy_array = pd.to_datetime(ref.time.values).dayofyear.values
-    doy_array = np.tile(doy_array, (ref.dims['latitude'],1)).T
+    doy_array = np.tile(doy, (latitude.shape[0],1)).T
     
     latitude_radians = et_utils.deg2rad(lat_array)
     solar_dec = et_utils.sol_dec(doy_array)
@@ -120,14 +119,19 @@ def create_radiation_data_array(ref):
     
     radiation = et_utils.et_rad(latitude_radians, solar_dec, sha, ird)
     # Now copy radiation to all longitudes, align, and join back in
-    radiation = np.repeat(radiation[:,:,np.newaxis], repeats=ref.dims['longitude'], axis=2)
+    radiation = np.repeat(radiation[:,:,np.newaxis], repeats=longitude.shape[0], axis=2)
 
     return xr.DataArray(radiation, name='radiation',
                         dims =   ('time','latitude','longitude'),
-                        coords = {'latitude':ref.latitude,
-                                  'longitude': ref.longitude,
-                                  'time': ref.time})
+                        coords = {'latitude':  latitude,
+                                  'longitude': longitude,
+                                  'time': time})
 
+def create_radiation_array_dask(ref):
+    doy = ref['time.dayofyear']
+    return xr.apply_ufunc(create_radiation_data_array,
+                          ref.time, doy, ref.latitude, ref.longitude,
+                          dask='allowed')
 
 if __name__ == "__main__":
     # Some testing stuff

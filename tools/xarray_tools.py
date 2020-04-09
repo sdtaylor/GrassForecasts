@@ -2,65 +2,98 @@ from GrasslandModels import et_utils
 import numpy as np
 import pandas as pd
 import xarray as xr
+import bottleneck as bn
 import glob
 import os
 
 import dask.array as da
 
 
-def compile_model_scenario(available_files,
-                           model_name='ccsm4', scenario='rcp26', run='r1i1p1', 
-                           chunks = {'latitude':100, 'longitude':100}):
-    """
-    Put together an xr dataset suitable for GrasslandModel predictions.
-    model_name, scneario, and run should be strings refering to cmip5 stuff.
-    
-    available_files should be a dictionary output by cmip_file_query()
-    
-    chunks is passed to xarray. note a chunked array is returned so it needs values
-    or compute() called to make the various calculations run.
-    
-    
-    Return an xarray object with the attributes
-    
-    coords: time, latitude, longitude
-    
-    pr     (time, latitude, longitude)
-    tasmin (time, latitude, longitude)
-    tasmax (time, latitude, longitude)
-    et     (time, latitude, longitude)
-    Wp     (latitude, longitude)
-    Wcap   (latitude, longitude)
-    MAP    (latitude, longitude)
-    """
-    #TODO: need 15 day running mean on tmean.
-    # maybe change the var names here to what phenograss expects
-    files = pd.DataFrame(available_files)
-    
-    datasets = []
-    for var in ['tasmin','tasmax','pr']:
-        file_paths = files.query('variable==@var & model==@model_name & scenario==@scenario & run==@run')
-        # If there is > 1 then it should be for multiple dates
-        if len(file_paths) > 1:
-            assert len(file_paths.decade.unique()) == len(file_paths)
-        elif len(file_paths) == 0:
-            raise RuntimeError('model scenario/run/variable not found')
-        
-        datasets.append(xr.combine_by_coords([xr.open_dataset(f, chunks=chunks) for f in file_paths.full_path]))
-    
-    
-    datasets = xr.merge(datasets)
+# testing variables
+# climate_model_files = glob.glob('data/cmip5_nc_files/*nc4')
+# climate_model_files = 'data/NE_CO_ccsm4.nc4'
+# climate_model_name = 'ccsm4'
+# scenario = 'rcp26'
+# chunk_sizes = {'latitude':10,'longitude':10,'time':-1}
+# other_var_ds = xr.open_dataset('data/other_variables.nc')
 
-    rad  = create_radiation_data_array(ref = datasets).chunk(chunks)
+def compile_cmip_model_data(climate_model_name,
+                            scenario,
+                            climate_model_files,
+                            other_var_ds,
+                            chunk_sizes):
+    """
+    Put together a single xarray dataset for a specified cmip model/scenario.
     
-    # compute is because it gets returned as a dask future
-    #et = create_et_data_array(datasets.tasmin, datasets.tasmax, rad).compute().chunk(chunks)
-    et = create_et_data_array(datasets.tasmin, datasets.tasmax, rad).chunk(chunks)
-    
-    # Includes Wp,Wcap & MAP
-    other_vars = xr.open_dataset('data/other_variables.nc', chunks=chunks)
+    The time range will depend on the files available and passed inside
+    climate_model_files.
 
-    return xr.merge([datasets, et, rad, other_vars])
+    Parameters
+    ----------
+    climate_model_name : str
+        name  of model. eg ccsm4, ggfl.
+    scenario : str
+        scenario name, (rcp26, rcp45, etc)
+    climate_model_files : list of strs
+        file paths for all associated nc files. passed to xr.open_mfdataset
+    other_var_ds : xr.Dataset
+        the other_variables.nc dataset object for soil/map variables
+    chunk_sizes : dict
+        chunk sizes passed to all xarray functions.
+
+    Returns
+    -------
+    xarray dataset of all phenograss variables for the specified model/scenario
+
+    """
+    climate = xr.open_mfdataset(climate_model_files, combine='by_coords', chunks=chunk_sizes)
+    
+    # Switch from longitude of 0-360 (default in cmip) to -180 - 180
+    climate['longitude'] = climate.longitude - 360
+    
+    radiation = create_radiation_data_array(time = climate.time, doy=climate['time.dayofyear'],
+                                            latitude = climate.latitude, longitude = climate.longitude)
+    radiation = radiation.chunk(chunk_sizes)
+    
+    et = create_et_data_array(tmin = climate.tasmin, tmax = climate.tasmax, radiation=radiation)
+    et = et.chunk(chunk_sizes)
+
+    # The other_var ds needs all chunks except time
+    other_var_ds = other_var_ds.chunk({k:chunk_sizes[k] for k in ['latitude','longitude']}) 
+    
+    all_vars = xr.merge([climate, radiation, et, other_var_ds])
+    #all_vars['tmean'] = (all_vars.tasmin + all_vars.tasmax) / 2
+    
+    # Smoothing the temperature with a simple moving average for now.
+    # Methodology from Hufkins uses a window of the  prior 15 days.
+    # TODO: setup test to make sure apply_ufunc rolling mean function matches
+    # the xarray rolling mean function. Not neccesarrily to a high precicion though.
+    #all_vars['tmean'] = ((all_vars.tasmin + all_vars.tasmax) / 2).rolling(time=15, center=False).mean().chunk(chunk_sizes)
+    all_vars['tmean'] = rolling_tmean(ds = all_vars, window_size = 15)
+    
+    all_vars = all_vars.transpose('time','latitude','longitude')
+    all_vars = all_vars.expand_dims({'model':[climate_model_name]})
+    all_vars = all_vars.expand_dims({'scenario':[scenario]})
+    
+    return all_vars
+
+
+def rolling_tmean(ds, window_size=15):
+    """ 
+    xarray as a moving window average method but it does not do lazy computations,
+    so here is a custom one using bottleneck.move_mean
+    """
+    def tmean_rolling(tasmin, tasmax):
+        return bn.move_mean(( (tasmin + tasmax) / 2), window=window_size, axis=-1)
+    
+    return xr.apply_ufunc(tmean_rolling,
+                          ds.tasmin,
+                          ds.tasmax,
+                          input_core_dims = [['time'],['time']],
+                          output_core_dims=[['time']],
+                          output_dtypes=[np.float32],
+                          dask = 'parallelized',
+                          )
 
 def tile_array_to_shape():
     pass
@@ -113,6 +146,62 @@ def create_radiation_array_dask(ref):
     return xr.apply_ufunc(create_radiation_data_array,
                           ref.time, doy, ref.latitude, ref.longitude,
                           dask='allowed')
+
+
+
+def apply_phenograss_dask_wrapper(model, ds):
+    """
+    Apply the phenograss model (from GrasslandModels package)
+    to an xarray dataset.
+    Specifically this wraps the function around apply_ufunc,
+    which allows the process to be split on an HPC via
+    dask and dask.distributed.
+
+    Parameters
+    ----------
+    model : 
+        A GrasslandModel.models.PhenoGrass model type.
+    ds : 
+        Xarray dataset with all required phenograss 
+
+    Returns
+    -------
+        xarray DataArray of phenograss output. All input coordinates will be
+        returned (eg. scenario, model)
+
+    """
+    #TODO: make sure to return fCover here as by default it returns GCC
+    
+    def model_wrapper(precip, evap, Ra, Tm, Wcap, Wp, MAP):
+        # ufunc will move the core axis, time, to the end ,but GrasslandModels
+        # needs it at the begining.
+        precip = np.moveaxis(precip, -1, 0)
+        evap = np.moveaxis(evap, -1, 0)
+        Ra = np.moveaxis(Ra, -1, 0)
+        Tm = np.moveaxis(Tm, -1, 0)
+        model_output= model.predict(predictors={'precip': precip.astype('float32'),
+                                         'evap'  : evap.astype('float32'),
+                                         'Ra'    : Ra.astype('float32'),
+                                         'Tm'    : Tm.astype('float32'),
+                                         'Wcap'  : Wcap.astype('float32'),
+                                         'Wp'    : Wp.astype('float32'),
+                                         'MAP'   : MAP.astype('float32')})
+        return np.moveaxis(model_output, 0,-1)        
+    
+    return xr.apply_ufunc(model_wrapper,
+                          ds.pr,
+                          ds.et,
+                          ds.radiation,
+                          ds.tmean,
+                          ds.Wcap,
+                          ds.Wp,
+                          ds.MAP,
+                          input_core_dims = [['time'],['time'],['time'],['time'],[],[],[]],
+                          output_core_dims=[['time']],
+                          dask = 'parallelized',
+                          output_dtypes=[float]
+                          )
+
 
 if __name__ == "__main__":
     # Some testing stuff

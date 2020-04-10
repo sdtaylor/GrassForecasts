@@ -14,7 +14,7 @@ import dask.array as da
 # climate_model_files = 'data/NE_CO_ccsm4.nc4'
 # climate_model_name = 'ccsm4'
 # scenario = 'rcp26'
-# chunk_sizes = {'latitude':10,'longitude':10,'time':-1}
+# chunk_sizes = {'latitude':4,'longitude':4,'time':-1}
 # other_var_ds = xr.open_dataset('data/other_variables.nc')
 
 def compile_cmip_model_data(climate_model_name,
@@ -51,8 +51,9 @@ def compile_cmip_model_data(climate_model_name,
     # Switch from longitude of 0-360 (default in cmip) to -180 - 180
     climate['longitude'] = climate.longitude - 360
     
-    radiation = create_radiation_data_array(time = climate.time, doy=climate['time.dayofyear'],
-                                            latitude = climate.latitude, longitude = climate.longitude)
+    # TODO: need to to this inside the dask one, so probably need to non-dask one
+    # to accept/return numpy arrays only
+    radiation = create_radiation_data_array(ref = climate)
     radiation = radiation.chunk(chunk_sizes)
     
     et = create_et_data_array(tmin = climate.tasmin, tmax = climate.tasmax, radiation=radiation)
@@ -62,7 +63,7 @@ def compile_cmip_model_data(climate_model_name,
     other_var_ds = other_var_ds.chunk({k:chunk_sizes[k] for k in ['latitude','longitude']}) 
     
     all_vars = xr.merge([climate, radiation, et, other_var_ds])
-    #all_vars['tmean'] = (all_vars.tasmin + all_vars.tasmax) / 2
+    all_vars = all_vars.chunk(chunk_sizes)
     
     # Smoothing the temperature with a simple moving average for now.
     # Methodology from Hufkins uses a window of the  prior 15 days.
@@ -71,9 +72,10 @@ def compile_cmip_model_data(climate_model_name,
     #all_vars['tmean'] = ((all_vars.tasmin + all_vars.tasmax) / 2).rolling(time=15, center=False).mean().chunk(chunk_sizes)
     all_vars['tmean'] = rolling_tmean(ds = all_vars, window_size = 15)
     
-    all_vars = all_vars.transpose('time','latitude','longitude')
+    
     all_vars = all_vars.expand_dims({'model':[climate_model_name]})
     all_vars = all_vars.expand_dims({'scenario':[scenario]})
+    all_vars = all_vars.transpose('time','latitude','longitude','model','scenario')
     
     return all_vars
 
@@ -83,10 +85,10 @@ def rolling_tmean(ds, window_size=15):
     xarray as a moving window average method but it does not do lazy computations,
     so here is a custom one using bottleneck.move_mean
     """
-    def tmean_rolling(tasmin, tasmax):
+    def move_mean_wrapper(tasmin, tasmax):
         return bn.move_mean(( (tasmin + tasmax) / 2), window=window_size, axis=-1)
     
-    return xr.apply_ufunc(tmean_rolling,
+    return xr.apply_ufunc(move_mean_wrapper,
                           ds.tasmin,
                           ds.tasmax,
                           input_core_dims = [['time'],['time']],
@@ -110,7 +112,7 @@ def create_et_data_array(tmin, tmax, radiation):
                           tmin, tmax, radiation,
                           dask='allowed').rename('et')
     
-def create_radiation_data_array(time, doy, latitude, longitude):
+def create_radiation_data_array(ref):
     """Return an xarray datarray containing
     
     coords: 
@@ -121,30 +123,41 @@ def create_radiation_data_array(time, doy, latitude, longitude):
         
     ref should be an xarray dataset with the same coordinates
     """
-    lat_array = np.tile(latitude, (time.shape[0],1))
+    # For every datapoint (ie. every time/lat/lon) there needs to be
+    # latitude and doy info. Making a 0 filled data array, referenced
+    # to the ref dataset, and broadcast the latitude and doy values across it.
+    lat_array = xr.zeros_like(ref.pr) + ref.latitude
+    doy_array = xr.zeros_like(ref.pr) + ref['time.dayofyear']
     
-    doy_array = np.tile(doy, (latitude.shape[0],1)).T
+    latitude_radians = xr.apply_ufunc(et_utils.deg2rad,
+                                      lat_array,
+                                      dask='allowed')
     
-    latitude_radians = et_utils.deg2rad(lat_array)
-    solar_dec = et_utils.sol_dec(doy_array)
+    solar_dec = xr.apply_ufunc(et_utils.sol_dec,
+                               doy_array,
+                               dask='allowed')
     
-    sha = et_utils.sunset_hour_angle(latitude_radians, solar_dec)
-    ird = et_utils.inv_rel_dist_earth_sun(doy_array)
+    sha = xr.apply_ufunc(et_utils.sunset_hour_angle,
+                         solar_dec,
+                         solar_dec,
+                         dask='allowed')
     
-    radiation = et_utils.et_rad(latitude_radians, solar_dec, sha, ird)
-    # Now copy radiation to all longitudes, align, and join back in
-    radiation = np.repeat(radiation[:,:,np.newaxis], repeats=longitude.shape[0], axis=2)
+    ird = xr.apply_ufunc(et_utils.inv_rel_dist_earth_sun,
+                         doy_array,
+                         dask='allowed')
+    
+    radiation = xr.apply_ufunc(et_utils.et_rad,
+                               latitude_radians,
+                               solar_dec,
+                               sha,
+                               ird,
+                               dask='allowed')
 
-    return xr.DataArray(radiation, name='radiation',
-                        dims =   ('time','latitude','longitude'),
-                        coords = {'latitude':  latitude,
-                                  'longitude': longitude,
-                                  'time': time})
+    return radiation.rename('radiation')
 
 def create_radiation_array_dask(ref):
-    doy = ref['time.dayofyear']
     return xr.apply_ufunc(create_radiation_data_array,
-                          ref.time, doy, ref.latitude, ref.longitude,
+                          ref.time, ref.doy, ref.lat, ref.lon,
                           dask='allowed')
 
 

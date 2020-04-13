@@ -10,23 +10,23 @@ climate_data_folder = 'data/cmip5_nc_files/'
 climate_model_info = [{'climate_model_name':'ccsm4',
                        'scenario':'rcp26',
                        'model_file_search_str': '*CCSM4_rcp26*.nc4'},
-                      # {'climate_model_name':'ccsm4',
-                      # 'scenario':'rcp45',
-                      # 'model_file_search_str': '*CCSM4_rcp45*.nc4'},
+                      {'climate_model_name':'ccsm4',
+                      'scenario':'rcp45',
+                      'model_file_search_str': '*CCSM4_rcp45*.nc4'},
                       
                       # {'climate_model_name':'csiro',
                       #  'scenario':'rcp26',
-                      #  'model_file_search_str': glob('*CSIRO-Mk3-6-0_rcp26*.nc4')},
+                      #  'model_file_search_str': '*CSIRO-Mk3-6-0_rcp26*.nc4'},
                       # {'climate_model_name':'csiro',
                       #  'scenario':'rcp45',
-                      #  'model_file_search_str': glob('*CSIRO-Mk3-6-0_rcp45*.nc4')},
+                      #  'model_file_search_str': '*CSIRO-Mk3-6-0_rcp45*.nc4'},
                       
                       # {'climate_model_name':'gfdl',
                       #  'scenario':'rcp26',
-                      #  'model_file_search_str': glob('*GFDL-ESM2G_rcp26*.nc4')},
+                      #  'model_file_search_str': '*GFDL-ESM2G_rcp26*.nc4'},
                       # {'climate_model_name':'gfdl',
                       #  'scenario':'rcp45',
-                      #  'model_file_search_str': glob('*GFDL-ESM2G_rcp45*.nc4')}
+                      #  'model_file_search_str': '*GFDL-ESM2G_rcp45*.nc4'}
                       ]
     
 
@@ -46,4 +46,4 @@ for ds_info in climate_model_info:
                                               chunk_sizes =         chunk_sizes)
     all_climate_models.append(ds)
     
-all_climate_models = xr.merge(all_climate_models)
+all_climate_models = xr.combine_by_coords(all_climate_models)

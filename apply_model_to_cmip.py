@@ -100,7 +100,10 @@ for ds_i, ds_info in enumerate(climate_model_info):
     
     output_file = 'phenograss_file{i}_{m}_{s}.nc4'.format(i=ds_i, m=ds_info['climate_model_name'], s=ds_info['scenario'])
     
-    phenograss_ds.to_dataset('fCover').to_netcdf(phenograss_output_folder + output_file,
+    phenograss_ds.to_dataset(name='fCover').to_netcdf(phenograss_output_folder + output_file,
                                                  encoding = phenograss_encoding)
+    
+    # The files get pretty big, so clear them out for the next round
+    ds = phenograss_ds = None
     
     print('dataset {i} processing complete'.format(i=ds_i))

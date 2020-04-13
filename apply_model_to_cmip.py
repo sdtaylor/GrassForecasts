@@ -16,9 +16,9 @@ climate_data_folder = 'data/cmip5_nc_files/'
 climate_model_info = [{'climate_model_name':'ccsm4',
                        'scenario':'rcp26',
                        'model_file_search_str': '*CCSM4_rcp26*.nc4'},
-                      {'climate_model_name':'ccsm4',
-                      'scenario':'rcp45',
-                      'model_file_search_str': '*CCSM4_rcp45*.nc4'},
+                      #{'climate_model_name':'ccsm4',
+                      #'scenario':'rcp45',
+                      #'model_file_search_str': '*CCSM4_rcp45*.nc4'},
                       
                       # {'climate_model_name':'csiro',
                       #  'scenario':'rcp26',
@@ -35,7 +35,13 @@ climate_model_info = [{'climate_model_name':'ccsm4',
                       #  'model_file_search_str': '*GFDL-ESM2G_rcp45*.nc4'}
                       ]
     
+phenograss_encoding = {'fCover':{'zlib':True,
+                              'complevel':4, 
+                              'dtype':'float32', 
+                              'scale_factor':0.001,  
+                              '_FillValue': -9999}}
 
+phenograss_output_folder = 'data/phenograss_nc_files/'
 
 ###############################################3
 # Dask/ceres config stuff stuff
@@ -78,7 +84,10 @@ from tools import xarray_tools
 #climate_model_files = 'data/NE_CO_ccsm4.nc4'
 other_var_ds = xr.open_dataset('data/other_variables.nc')
 
-all_climate_models = []
+phenograss = GrasslandModels.utils.load_prefit_model('PhenoGrass-original')  
+phenograss.set_internal_method('numpy')  
+
+#all_phenograss_output = []
 for ds_i, ds_info in enumerate(climate_model_info):
     model_files = glob(climate_data_folder + ds_info['model_file_search_str'])
     ds = xarray_tools.compile_cmip_model_data(climate_model_name =  ds_info['climate_model_name'], 
@@ -86,8 +95,12 @@ for ds_i, ds_info in enumerate(climate_model_info):
                                               climate_model_files = model_files, 
                                               other_var_ds =        other_var_ds, 
                                               chunk_sizes =         chunk_sizes)
-    all_climate_models.append(ds)
-    print('dataset {i} load complete'.format(i=ds_i))
-
-print('combining all datasets')
-all_climate_models = xr.combine_by_coords(all_climate_models)
+    
+    phenograss_ds = xarray_tools.apply_phenograss_dask_wrapper(model = phenograss, ds=ds).compute() 
+    
+    output_file = 'phenograss_file{i}_{m}_{s}.nc4'.format(i=ds_i, m=ds_info['climate_model_name'], s=ds_info['scenario'])
+    
+    phenograss_ds.to_dataset('fCover').to_netcdf(phenograss_output_folder + output_file,
+                                                 encoding = phenograss_encoding)
+    
+    print('dataset {i} processing complete'.format(i=ds_i))

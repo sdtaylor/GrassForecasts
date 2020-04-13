@@ -65,7 +65,7 @@ cluster = SLURMCluster(processes=1, queue=ceres_partition, cores=ceres_cores_per
 print('Starting up workers')
 workers = cluster.scale(n=ceres_workers)
 dask_client = Client(cluster)
-
+print('Dask scheduler address: {a}'.format(a=dask_client.scheduler_info()['address']))
 active_workers =  len(dask_client.scheduler_info()['workers'])
 while active_workers < (ceres_workers-1):
     print('waiting on workers: {a}/{b}'.format(a=active_workers, b=ceres_workers))

@@ -192,14 +192,16 @@ def apply_phenograss_dask_wrapper(model, ds):
         evap = np.moveaxis(evap, -1, 0)
         Ra = np.moveaxis(Ra, -1, 0)
         Tm = np.moveaxis(Tm, -1, 0)
-        model_output= model.predict(predictors={'precip': precip.astype('float32'),
-                                         'evap'  : evap.astype('float32'),
-                                         'Ra'    : Ra.astype('float32'),
-                                         'Tm'    : Tm.astype('float32'),
-                                         'Wcap'  : Wcap.astype('float32'),
-                                         'Wp'    : Wp.astype('float32'),
-                                         'MAP'   : MAP.astype('float32')})
-        return np.moveaxis(model_output, 0,-1)        
+        model_output = model.predict(predictors={'precip': precip.astype('float32'),
+                                                 'evap'  : evap.astype('float32'),
+                                                 'Ra'    : Ra.astype('float32'),
+                                                 'Tm'    : Tm.astype('float32'),
+                                                 'Wcap'  : Wcap.astype('float32'),
+                                                 'Wp'    : Wp.astype('float32'),
+                                                 'MAP'   : MAP.astype('float32')},
+                                     return_vars='all')
+        
+        return np.moveaxis(model_output['fCover'], 0,-1)        
     
     return xr.apply_ufunc(model_wrapper,
                           ds.pr,

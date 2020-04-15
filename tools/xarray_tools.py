@@ -199,8 +199,8 @@ def apply_phenograss_dask_wrapper(model, ds):
                                                  'Wcap'  : Wcap.astype('float32'),
                                                  'Wp'    : Wp.astype('float32'),
                                                  'MAP'   : MAP.astype('float32')},
-                                     return_vars='all')
-        
+                                     return_variables='all')
+
         return np.moveaxis(model_output['fCover'], 0,-1)        
     
     return xr.apply_ufunc(model_wrapper,

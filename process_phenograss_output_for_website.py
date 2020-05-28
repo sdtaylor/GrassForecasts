@@ -16,6 +16,10 @@ chunk_sizes = dict(latitude=100,
                    longitude=100,
                    time=2000)
 
+# A mask of where the model is relavant. most of the USA will be excluded. 
+mask = xr.open_dataarray('data/ecoregion_mask.nc')
+mask['longitude'] = mask.longitude - 360
+
 phenograss_files = glob('data/phenograss_nc_files/phenograss_file*.nc4')
 
 annual_integral_objs = []
@@ -28,7 +32,13 @@ for file_i, filepath in enumerate(phenograss_files):
     
     annual_integral_objs.append(annual_fCover)
 
-annual_integral = xr.combine_by_coords(annual_integral_objs).to_dataframe().reset_index()
+annual_integral = xr.combine_by_coords(annual_integral_objs)
+
+annual_integral = xr.merge([annual_integral, mask.astype(bool)])
+annual_integral = annual_integral.to_dataframe().reset_index()
+
+annual_integral = annual_integral[annual_integral.ecoregion_mask]
+
 
 # coarsen to 0.5 degree lat/lon
 annual_integral['latitude'] = np.floor(annual_integral.latitude*2)/2

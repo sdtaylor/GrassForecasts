@@ -17,6 +17,45 @@ import dask.array as da
 # chunk_sizes = {'latitude':4,'longitude':4,'time':-1}
 # other_var_ds = xr.open_dataset('data/other_variables.nc')
 
+def compile_cmip_data(climate_model_name,
+                      scenario,
+                      climate_model_files,
+                      chunk_sizes):
+    """
+    Put together a single xarray dataset for a specified cmip model/scenario.
+    
+    The time range will depend on the files available and passed inside
+    climate_model_files.
+
+    Parameters
+    ----------
+    climate_model_name : str
+        name  of model. eg ccsm4, ggfl.
+    scenario : str
+        scenario name, (rcp26, rcp45, etc)
+    climate_model_files : list of strs
+        file paths for all associated nc files. passed to xr.open_mfdataset
+    chunk_sizes : dict
+        chunk sizes passed to all xarray functions.
+
+    Returns
+    -------
+    xarray dataset of the base cmip variables for the specified model/scenario
+
+    """
+    all_vars = xr.open_mfdataset(climate_model_files, combine='by_coords', chunks=chunk_sizes)
+    
+    # Switch from longitude of 0-360 (default in cmip) to -180 - 180
+    all_vars['longitude'] = all_vars.longitude - 360
+    
+    all_vars['tmean'] = (all_vars.tasmin + all_vars.tasmax)/2
+
+    all_vars = all_vars.expand_dims({'model':[climate_model_name]})
+    all_vars = all_vars.expand_dims({'scenario':[scenario]})
+    all_vars = all_vars.transpose('time','latitude','longitude','model','scenario')
+    
+    return all_vars
+
 def compile_cmip_model_data(climate_model_name,
                             scenario,
                             climate_model_files,
@@ -200,7 +239,6 @@ def apply_phenograss_dask_wrapper(model, ds):
                                                  'Wp'    : Wp.astype('float32'),
                                                  'MAP'   : MAP.astype('float32')},
                                      return_variables='all')
-
         return np.moveaxis(model_output['fCover'], 0,-1)        
     
     return xr.apply_ufunc(model_wrapper,

@@ -105,19 +105,28 @@ def verify_cmip5_parts(xr_obj,
     timeseries at this one location then everything should be intact. 
     """
     
+    expected_start_date = np.datetime64(expected_start_date)
+    expected_end_date   = np.datetime64(expected_end_date)
+    expected_length = (expected_end_date - expected_start_date).astype(int) + 1
     
     print('checking model {m} - {s}'.format(m=xr_obj.model.values, s=xr_obj.scenario.values))
     
     start_date = xr_obj.time.values.min().astype('datetime64[D]')
     end_date   = xr_obj.time.values.max().astype('datetime64[D]')
+    length     = len(xr_obj.time)
     
-    start_date_off = start_date != np.datetime64(expected_start_date)
-    end_date_off   = end_date != np.datetime64(expected_end_date)
+    start_date_off = start_date != expected_start_date
+    end_date_off   = end_date   != expected_end_date
+    length_off     = length != expected_length
+    
     if start_date_off or end_date_off:
         UserWarning('Dates are off, got {s1} - {s2}, expected {e1} - {e2}'.format(s1=start_date,
                                                                                   s2=end_date,
                                                                                   e1=expected_start_date,
                                                                                   e2=expected_end_date))
+    if length_off:
+        UserWarning('Number of days off, got {n1}, expected {n2} days'.format(n1=length,
+                                                                              n2=expected_length))
     
     for var in expected_vars:
         timeseries = xr_obj[var].isel(latitude=150, longitude=200).values

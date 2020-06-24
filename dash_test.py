@@ -12,31 +12,45 @@ import numpy as np
 import geopandas as gp
 import json
 
+from tools.etc import build_geojson_grid
+
 #################################################                                    
 #################################################
 # Loading data for the map and figures
 #################################################                                    
 #################################################
-with open('usa_latlon_grid.geojson','r') as f:
-    us_grid = json.load(f)
 
-n_features = len(us_grid['features'])
-[f.update(id=i) for i,f in enumerate(us_grid['features'])]
 
-reference_years = list(range(2010,2020))
-min_year = 2010
+phenograss_data = pd.read_csv('phenograss_ann_integral.csv')
+phenograss_data['year'] = phenograss_data.time
 
-phenograss_data = pd.read_csv('data/NE_CO_phenograss.csv')
-phenograss_data = phenograss_data[phenograss_data.year >= min_year]
+phenograss_data['fCover_annomoly'] = phenograss_data.fCover_annomoly -1
+#phenograss_data = phenograss_data[phenograss_data.year >= min_year]
 
-pixel_ids = phenograss_data[['latitude','longitude']].drop_duplicates().reset_index()
+# The 5 year moving window average
+#running_avg = phenograss_data.groupby(['latitude','longitude','model','scenario']).rolling(window=5,min_periods=5,on='year').fCover_annomoly.mean().reset_index()
+#phenograss_data = phenograss_data.drop(columns='fCover_annomoly').merge(running_avg, how='left', on=['latitude','longitude','model','scenario','year'])
+
+# One data point per year/scenario, different models are averaged togehter for a mean/sd
+# This should not be so confoluted but omg doing groupby stuff in pandas is a total chore
+fCover_mean = phenograss_data.groupby(['latitude','longitude','year','scenario']).fCover_annomoly.mean().reset_index().rename(columns={'fCover_annomoly':'fCover_annomoly_mean'})
+fCover_std = phenograss_data.groupby(['latitude','longitude','year','scenario']).fCover_annomoly.std().reset_index().rename(columns={'fCover_annomoly':'fCover_annomoly_std'})
+phenograss_plot_data = pd.merge(fCover_mean, fCover_std, on=['latitude','longitude','year','scenario'] , how='left')
+
+
+pixel_ids = phenograss_data[['latitude','longitude']].drop_duplicates().reset_index().drop(columns=['index'])
 pixel_ids['pixel_id'] = pixel_ids.index
 phenograss_data = pd.merge(phenograss_data ,pixel_ids, on=['latitude','longitude'], how='left')
+phenograss_plot_data = pd.merge(phenograss_plot_data ,pixel_ids, on=['latitude','longitude'], how='left')
 
-# TODO: adjust to anomaly via reference years
+us_grid = build_geojson_grid(phenograss_data, polygon_buffer=0.9)
+us_grid = json.loads(us_grid.to_json())
+n_features = len(us_grid['features'])
+[f.update(id=i) for i,f in enumerate(us_grid['features'])]
+# TODO: make feature numbers based on the pixel_id column in phenograss_data
 
-reference_values = phenograss_data[phenograss_data.year.isin(reference_years)]
-map_data = phenograss_data.groupby(['pixel_id']).annual_productivity.mean().reset_index()
+# Mean climatology for each pixel, which varies slightly among models/scenarios
+map_data = phenograss_data[['pixel_id','fCover_climatology']].groupby(['pixel_id']).fCover_climatology.mean().reset_index()
 
 #################################################                                    
 #################################################
@@ -56,45 +70,16 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 page_title_text = html.Div([html.H1("Grassland Productivity Long Term Forecast")],
                                 style={'textAlign': "center", "padding-bottom": "30"})
 
-year_slider_labels = list(range(selectable_years.min(), selectable_years.max(), 5))
-year_slider_container = html.Div(id='year-slider-container',
-                                children = [
-                                    html.P(
-                                        id='year-slider-text',
-                                        children='Drag the slider the the descired decade',
-                                        ),
-                                    dcc.Slider(
-                                        id='year-slider',
-                                        min=min(selectable_years),
-                                        max=max(selectable_years),
-                                        value=min(selectable_years),
-                                        marks={
-                                            year: {'label':str(year)}
-                                             for year in year_slider_labels}
-                                        )], style={'width':'50%'})
-
-scenario_radio_container = html.Div(id='scenario-radio-container',
-                                    children = [
-                                        html.P(
-                                            id='scenario-radio-text',
-                                            children = 'Select a scenario'
-                                            ),
-                                        dcc.RadioItems(
-                                            id='scenario-select',
-                                            options = [{'label':s,'value':s} for s in selectable_scenarios],
-                                            value  = selectable_scenarios[0]
-                                            )
-                                        ])
-
 response_radio_container = html.Div(id='response-radio-container',
                                     children = [
                                         html.P(
                                             id='response-radio-text',
-                                            children = 'Select a variable to forecast'
+                                            children = 'Select a year'
                                             ),
                                         dcc.RadioItems(
-                                            options = [{'label':'Change in Annual Productivity','value':'change_in_productivity'}],
-                                            value  = 'change_in_productivity'
+                                            id = 'year-select',
+                                            options = [2010,2020,2030,2040],
+                                            value  = 2010
                                             )
                                         ])
 
@@ -134,23 +119,14 @@ app.layout = html.Div(id='page-container',
                           
                           page_title_text,
                           
-                          # combo of column counts to make the scenario on
-                          # the left, with reponse/year stacked on right
-                          html.Div(id='selection-container',
-                                   children = [
-                                       scenario_radio_container,
-                                       html.Div([response_radio_container,
-                                                 year_slider_container],
-                                                style={'columnCount':1})                                       
-                                       ], style={'columnCount':2}),
-                          
                           html.Div(id='figure-container',
                                    children = [
                                        map_container,
                                        timeseries_container
                                        ],style={'columnCount':2}),
                           
-                          markdown_container
+                          markdown_container,
+                          response_radio_container
                           ], style={'align-items':'center',
                                     'justify-content':'center'})
                                  
@@ -169,37 +145,33 @@ def display_click_data(clickData):
 
 @app.callback(
     dash.dependencies.Output('timeseries', 'figure'),
-    [dash.dependencies.Input('map', 'clickData'),
-     dash.dependencies.Input('scenario-select', 'value'),
-     dash.dependencies.Input("year-slider", "value")])
-def update_timeseries(clickData, scenario, year):
+    [dash.dependencies.Input('map', 'clickData')])
+def update_timeseries(clickData):
     print(clickData)
     selected_pixel = clickData['points'][0]['location']
     print(selected_pixel)
-    pixel_data = phenograss_data[(phenograss_data.pixel_id==selected_pixel) & (phenograss_data.scenario==scenario) & (phenograss_data.year<=year)]
+    pixel_data = phenograss_plot_data[(phenograss_plot_data.pixel_id==selected_pixel) & (phenograss_data.scenario=='rcp26')]
     
     traces = []
-    for model in climate_models:
-        model_data = pixel_data[pixel_data.model==model]
-        traces.append(go.Scatter(x=model_data.year, y=model_data.annual_productivity,
-                                 mode='lines+markers',
-                                 name=model))
+    traces.append(go.Scatter(x=pixel_data.year, y=pixel_data.fCover_annomoly_mean,
+                             mode='lines+markers',
+                             name='fcover'))
     
     
     #trace = go.Scatter(x=pixel_data.year, y=pixel_data.tasmax)
     return {'data': traces,
-             "layout": go.Layout(title='Yearly fCover',height=500,width=900)}
+             "layout": go.Layout(title='Yearly fCover anomaly',height=500,width=900)}
 
 @app.callback(
     dash.dependencies.Output("map", "figure"),
-    [dash.dependencies.Input("year-slider", "value")]
+    [dash.dependencies.Input('year-select','value')]
 )
-def update_map(year):
+def update_map(value):
     dff = map_data
     
     trace = go.Choropleth(
                     geojson=us_grid,
-                    z = dff['annual_productivity'],
+                    z = dff['fCover_climatology'],
                     locations = dff['pixel_id'],
                     featureidkey='id',
                     locationmode='geojson-id'

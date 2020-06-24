@@ -21,11 +21,16 @@ from tools.etc import build_geojson_grid
 #################################################                                    
 #################################################
 
+climate_data = pd.read_csv('data/climate_annual_data.csv')
 
 phenograss_data = pd.read_csv('phenograss_ann_integral.csv')
+
+phenograss_data = pd.merge(phenograss_data, climate_data, how='left', on=['latitude', 'longitude', 'model', 'scenario', 'time'])
+
 phenograss_data['year'] = phenograss_data.time
 
-phenograss_data['fCover_annomoly'] = phenograss_data.fCover_annomoly -1
+for var in ['fCover_annomoly','tmean_annomoly','pr_anomaly']:
+    phenograss_data[var] = phenograss_data[var] -1
 #phenograss_data = phenograss_data[phenograss_data.year >= min_year]
 
 # The 5 year moving window average
@@ -33,10 +38,19 @@ phenograss_data['fCover_annomoly'] = phenograss_data.fCover_annomoly -1
 #phenograss_data = phenograss_data.drop(columns='fCover_annomoly').merge(running_avg, how='left', on=['latitude','longitude','model','scenario','year'])
 
 # One data point per year/scenario, different models are averaged togehter for a mean/sd
-# This should not be so confoluted but omg doing groupby stuff in pandas is a total chore
-fCover_mean = phenograss_data.groupby(['latitude','longitude','year','scenario']).fCover_annomoly.mean().reset_index().rename(columns={'fCover_annomoly':'fCover_annomoly_mean'})
-fCover_std = phenograss_data.groupby(['latitude','longitude','year','scenario']).fCover_annomoly.std().reset_index().rename(columns={'fCover_annomoly':'fCover_annomoly_std'})
-phenograss_plot_data = pd.merge(fCover_mean, fCover_std, on=['latitude','longitude','year','scenario'] , how='left')
+# This should not be so convoluted but omg doing groupby stuff in pandas is a total chore
+
+annual_mean = phenograss_data.groupby(['latitude','longitude','year','scenario']).agg({'fCover_annomoly':'mean',
+                                                                                       'tmean_annomoly':'mean',
+                                                                                       'pr_anomaly':'mean'}).reset_index()
+annual_mean.rename(columns={'fCover_annomoly':'fCover_annomoly_mean','tmean_annomoly':'tmean_annomoly_mean','pr_anomaly':'pr_anomaly_mean'}, inplace=True)
+
+annual_std = phenograss_data.groupby(['latitude','longitude','year','scenario']).agg({'fCover_annomoly':'std',
+                                                                                       'tmean_annomoly':'std',
+                                                                                       'pr_anomaly':'std'}).reset_index()
+annual_std.rename(columns={'fCover_annomoly':'fCover_annomoly_std','tmean_annomoly':'tmean_annomoly_std','pr_anomaly':'pr_anomaly_std'}, inplace=True)
+
+phenograss_plot_data = pd.merge(annual_mean, annual_std, on=['latitude','longitude','year','scenario'] , how='left')
 
 
 pixel_ids = phenograss_data[['latitude','longitude']].drop_duplicates().reset_index().drop(columns=['index'])
@@ -155,15 +169,41 @@ def update_timeseries(clickData):
     rcp26 = pixel_data.scenario=='rcp26'
     rcp45 = pixel_data.scenario=='rcp45'
     
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True)
-    fig.append_trace(go.Scatter(x=pixel_data.year[rcp26], y=pixel_data.fCover_annomoly_mean[rcp26],
-                             mode='lines+markers',
-                             name='rcp26'),
-                     row=1,col=1)    
-    fig.append_trace(go.Scatter(x=pixel_data.year[rcp45], y=pixel_data.fCover_annomoly_mean[rcp45],
-                             mode='lines+markers',
-                             name='rcp45'),
-                     row=2,col=1)  
+    traces_to_add = [{'name':'Change in Productivity',
+                      'color':'green',
+                      'mean_var':'fCover_annomoly_mean',
+                      'std_var':'fCover_annomoly_std',
+                      'offset':-0.2},
+                     {'name':'Change in Temperature',
+                      'color':'red',
+                      'mean_var':'tmean_annomoly_mean',
+                      'std_var':'tmean_annomoly_std',
+                      'offset':0.1},
+                     {'name':'Change in Rain',
+                      'color':'blue',
+                      'mean_var':'pr_anomaly_mean',
+                      'std_var':'pr_anomaly_std',
+                      'offset':0.3}]
+    
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
+                        subplot_titles=['Best Case Scenario (RCP26)','Moderate Case Scenario (RCP45)'])
+    
+    # Add the 3 different markers in the top figure for rcp26
+    for t in traces_to_add:
+        fig.append_trace(go.Scatter(x=pixel_data.year[rcp26] + t['offset'], y=pixel_data[t['mean_var']][rcp26],
+                                    error_y = dict(type='data',array=pixel_data[t['std_var']][rcp26], width=0),
+                                    mode='markers', marker=dict(color=t['color']),
+                                    name=t['name']),
+                         row=1,col=1)    
+        
+        # The rcp45 figure doesn't get any name text
+        fig.append_trace(go.Scatter(x=pixel_data.year[rcp26] + t['offset'], y=pixel_data[t['mean_var']][rcp45],
+                                    error_y = dict(type='data',array=pixel_data[t['std_var']][rcp45], width=0),
+                                    mode='markers', marker=dict(color=t['color']),
+                                    name=''),
+                         row=2,col=1) 
+    
+    fig.update_layout(title = '', height=500, width=800)
 
     return fig
 

@@ -4,6 +4,7 @@ import os
 # for build_geojson_grid
 from geopandas import GeoDataFrame, GeoSeries
 from shapely.geometry import Polygon
+import numpy as np
 
 def cmip_file_query(folder):
     file_list = glob.glob(folder+'/*.nc4')
@@ -146,9 +147,23 @@ def get_cmip5_files(model_spec, base_folder, get_historic=True):
         
 
 def verify_cmip5_parts(xr_obj, 
-                       expected_vars = ['pr','tasmin','tasmax'],
+                       expected_vars = ['pr','tasmin','tasmax','tmean'],
                        expected_start_time = '1980-01-01',
                        expected_end_time   = '2100-12-31'):
-    pass
-
+    """ 
+    The intention here is to account for the several hundred netcdf files. They 
+    are organized by time period, thus as long as each variable has a fully intact
+    timeseries at this one location then everything should be intact. 
+    """
     
+    
+    print('checking model {m} - {s}'.format(m=xr_obj.model.values, s=xr_obj.scenario.values))
+    for var in expected_vars:
+        timeseries = xr_obj[var].isel(latitude=150, longitude=200).values
+        missing_entries = np.where(np.isnan(timeseries))[0]
+        if len(missing_entries)>0:
+            missing_dates = xr_obj.time[missing_entries].values
+            UserWarning('missing {n} entries in {v}, from {d1} to {d2}'.format(v=var, 
+                                                                               n=len(missing_dates),
+                                                                               d1=missing_dates.min(),
+                                                                               d2=missing_dates.max()))

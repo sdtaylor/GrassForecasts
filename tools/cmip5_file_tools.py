@@ -59,7 +59,33 @@ def get_cmip5_spec(models='all',scenarios='all'):
                   'model_file_search_str': '*GFDL-ESM2G'},
                  {'climate_model_name':'gfdl',
                   'scenario':'rcp85',
-                  'model_file_search_str': '*GFDL-ESM2G'}
+                  'model_file_search_str': '*GFDL-ESM2G'},
+                 
+                 {'climate_model_name':'miroc5',
+                  'scenario':'rcp26',
+                  'model_file_search_str': '*MIROC5'},
+                 {'climate_model_name':'miroc5',
+                  'scenario':'rcp45',
+                  'model_file_search_str': '*MIROC5'},
+                 {'climate_model_name':'miroc5',
+                  'scenario':'rcp60',
+                  'model_file_search_str': '*MIROC5'},
+                 {'climate_model_name':'miroc5',
+                  'scenario':'rcp85',
+                  'model_file_search_str': '*MIROC5'},
+                 
+                 {'climate_model_name':'noresm1',
+                  'scenario':'rcp26',
+                  'model_file_search_str': '*NorESM1-M'},
+                 {'climate_model_name':'noresm1',
+                  'scenario':'rcp45',
+                  'model_file_search_str': '*NorESM1-M'},
+                 {'climate_model_name':'noresm1',
+                  'scenario':'rcp60',
+                  'model_file_search_str': '*NorESM1-M'},
+                 {'climate_model_name':'noresm1',
+                  'scenario':'rcp85',
+                  'model_file_search_str': '*NorESM1-M'},
                  ]
     
     to_return = []

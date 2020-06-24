@@ -97,8 +97,8 @@ def get_cmip5_files(model_spec, base_folder, get_historic=True):
 
 def verify_cmip5_parts(xr_obj, 
                        expected_vars = ['pr','tasmin','tasmax','tmean'],
-                       expected_start_time = '1980-01-01',
-                       expected_end_time   = '2100-12-31'):
+                       expected_start_date = '1980-01-01',
+                       expected_end_date   = '2100-12-31'):
     """ 
     The intention here is to account for the several hundred netcdf files. They 
     are organized by time period, thus as long as each variable has a fully intact
@@ -107,6 +107,18 @@ def verify_cmip5_parts(xr_obj,
     
     
     print('checking model {m} - {s}'.format(m=xr_obj.model.values, s=xr_obj.scenario.values))
+    
+    start_date = xr_obj.time.values.min().astype('datetime64[D]')
+    end_date   = xr_obj.time.values.max().astype('datetime64[D]')
+    
+    start_date_off = start_date != np.datetime64(expected_start_date)
+    end_date_off   = end_date != np.datetime64(expected_end_date)
+    if start_date_off or end_date_off:
+        UserWarning('Dates are off, got {s1} - {s2}, expected {e1} - {e2}'.format(s1=start_date,
+                                                                                  s2=end_date,
+                                                                                  e1=expected_start_date,
+                                                                                  e2=expected_end_date))
+    
     for var in expected_vars:
         timeseries = xr_obj[var].isel(latitude=150, longitude=200).values
         missing_entries = np.where(np.isnan(timeseries))[0]

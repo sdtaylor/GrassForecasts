@@ -5,6 +5,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
 import plotly.graph_objs as go
+from plotly.subplots import make_subplots
 
 from textwrap import dedent as d
 
@@ -150,17 +151,21 @@ def update_timeseries(clickData):
     print(clickData)
     selected_pixel = clickData['points'][0]['location']
     print(selected_pixel)
-    pixel_data = phenograss_plot_data[(phenograss_plot_data.pixel_id==selected_pixel) & (phenograss_data.scenario=='rcp26')]
+    pixel_data = phenograss_plot_data[(phenograss_plot_data.pixel_id==selected_pixel)]
+    rcp26 = pixel_data.scenario=='rcp26'
+    rcp45 = pixel_data.scenario=='rcp45'
     
-    traces = []
-    traces.append(go.Scatter(x=pixel_data.year, y=pixel_data.fCover_annomoly_mean,
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True)
+    fig.append_trace(go.Scatter(x=pixel_data.year[rcp26], y=pixel_data.fCover_annomoly_mean[rcp26],
                              mode='lines+markers',
-                             name='fcover'))
-    
-    
-    #trace = go.Scatter(x=pixel_data.year, y=pixel_data.tasmax)
-    return {'data': traces,
-             "layout": go.Layout(title='Yearly fCover anomaly',height=500,width=900)}
+                             name='rcp26'),
+                     row=1,col=1)    
+    fig.append_trace(go.Scatter(x=pixel_data.year[rcp45], y=pixel_data.fCover_annomoly_mean[rcp45],
+                             mode='lines+markers',
+                             name='rcp45'),
+                     row=2,col=1)  
+
+    return fig
 
 @app.callback(
     dash.dependencies.Output("map", "figure"),
@@ -177,7 +182,6 @@ def update_map(value):
                     locationmode='geojson-id'
                     )
     
-    #return {'data':[trace]}
     return {"data": [trace],
              "layout": go.Layout(title='layout title',height=500,width=700,geo_scope='usa',geo={'showframe': False,'showcoastlines': False})}
 

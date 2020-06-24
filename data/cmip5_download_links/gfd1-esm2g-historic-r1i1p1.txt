@@ -1,0 +1,17 @@
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/pr/BCCAv2_0.125deg_pr_day_GFDL-ESM2G_historical_r1i1p1_19810101-19851231.nc4
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/pr/BCCAv2_0.125deg_pr_day_GFDL-ESM2G_historical_r1i1p1_19860101-19901231.nc4
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/pr/BCCAv2_0.125deg_pr_day_GFDL-ESM2G_historical_r1i1p1_19910101-19951231.nc4
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/pr/BCCAv2_0.125deg_pr_day_GFDL-ESM2G_historical_r1i1p1_19960101-20001231.nc4
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/pr/BCCAv2_0.125deg_pr_day_GFDL-ESM2G_historical_r1i1p1_20010101-20051231.nc4
+
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/tasmax/BCCA_0.125deg_tasmax_day_GFDL-ESM2G_historical_r1i1p1_19810101-19851231.nc4
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/tasmax/BCCA_0.125deg_tasmax_day_GFDL-ESM2G_historical_r1i1p1_19860101-19901231.nc4
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/tasmax/BCCA_0.125deg_tasmax_day_GFDL-ESM2G_historical_r1i1p1_19910101-19951231.nc4
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/tasmax/BCCA_0.125deg_tasmax_day_GFDL-ESM2G_historical_r1i1p1_19960101-20001231.nc4
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/tasmax/BCCA_0.125deg_tasmax_day_GFDL-ESM2G_historical_r1i1p1_20010101-20051231.nc4
+
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/tasmin/BCCA_0.125deg_tasmin_day_GFDL-ESM2G_historical_r1i1p1_19810101-19851231.nc4
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/tasmin/BCCA_0.125deg_tasmin_day_GFDL-ESM2G_historical_r1i1p1_19860101-19901231.nc4
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/tasmin/BCCA_0.125deg_tasmin_day_GFDL-ESM2G_historical_r1i1p1_19910101-19951231.nc4
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/tasmin/BCCA_0.125deg_tasmin_day_GFDL-ESM2G_historical_r1i1p1_19960101-20001231.nc4
+ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/cmip5/bcca/gfdl-esm2g/historical/day/r1i1p1/tasmin/BCCA_0.125deg_tasmin_day_GFDL-ESM2G_historical_r1i1p1_20010101-20051231.nc4

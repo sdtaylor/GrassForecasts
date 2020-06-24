@@ -128,14 +128,17 @@ def get_cmip5_files(model_spec, base_folder, get_historic=True):
     
     Used in combination with load_cmip5_spec()
     """
+    
+    # The rcpXX files
     forecast_search = model_spec['model_file_search_str'] + '_' + model_spec['scenario'] + '*.nc4'
     historic_search = model_spec['model_file_search_str'] + '_historic*.nc4'
     
-    model_files = glob.glob(climate_data_folder + historic_search)
+    model_files = glob.glob(base_folder + forecast_search)
     assert len(model_files) > 5, 'no model files found for {m} - {s}'.format(m = model_spec['climate_model_name'] , s = model_spec['scenario'])
     
+    # The historic files
     if get_historic:
-        historic_files = glob.glob(climate_data_folder + historic_search)
+        historic_files = glob.glob(base_folder + historic_search)
         assert len(historic_files) > 3, 'no historic model files found for {m}'.format(m = model_spec['climate_model_name'])
         model_files.extend(historic_files)        
 

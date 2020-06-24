@@ -120,20 +120,20 @@ def verify_cmip5_parts(xr_obj,
     length_off     = length != expected_length
     
     if start_date_off or end_date_off:
-        UserWarning('Dates are off, got {s1} - {s2}, expected {e1} - {e2}'.format(s1=start_date,
-                                                                                  s2=end_date,
-                                                                                  e1=expected_start_date,
-                                                                                  e2=expected_end_date))
+        print('Dates are off, got {s1} - {s2}, expected {e1} - {e2}'.format(s1=start_date,
+                                                                            s2=end_date,
+                                                                            e1=expected_start_date,
+                                                                            e2=expected_end_date))
     if length_off:
-        UserWarning('Number of days off, got {n1}, expected {n2} days'.format(n1=length,
-                                                                              n2=expected_length))
+        print('Number of days off, got {n1}, expected {n2} days'.format(n1=length,
+                                                                        n2=expected_length))
     
     for var in expected_vars:
         timeseries = xr_obj[var].isel(latitude=150, longitude=200).values
         missing_entries = np.where(np.isnan(timeseries))[0]
         if len(missing_entries)>0:
             missing_dates = xr_obj.time[missing_entries].values
-            UserWarning('missing {n} entries in {v}, from {d1} to {d2}'.format(v=var, 
-                                                                               n=len(missing_dates),
-                                                                               d1=missing_dates.min(),
-                                                                               d2=missing_dates.max()))
+            print('missing {n} entries in {v}, from {d1} to {d2}'.format(v=var, 
+                                                                         n=len(missing_dates),
+                                                                         d1=missing_dates.min(),
+                                                                         d2=missing_dates.max()))

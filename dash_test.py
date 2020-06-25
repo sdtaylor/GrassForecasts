@@ -236,6 +236,8 @@ def update_timeseries(clickData):
     
     rcp26 = pixel_data.scenario=='rcp26'
     rcp45 = pixel_data.scenario=='rcp45'
+    scenarios = ['rcp26','rcp45']
+    scenario_titles = ['Best Case Scenario (RCP26)','Moderate Case Scenario (RCP45)']
     
     traces_to_add = [{'variable_desc':'Change in Grassland Productivity',
                       'variable': 'Grassland productivity',
@@ -256,41 +258,33 @@ def update_timeseries(clickData):
                       'std_var':'pr_anomaly_std',
                       'offset':1}]
     
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
-                        subplot_titles=['Best Case Scenario (RCP26)','Moderate Case Scenario (RCP45)'])
+    fig = make_subplots(rows=len(scenarios), cols=1, shared_xaxes=True,
+                        subplot_titles=scenario_titles)
     
-    # Add the 3 different markers in the top figure for rcp26
+    # Add the 3 different markers, 1 for each variable, for each of the scenarios
     for t in traces_to_add:
-        
-        # Tie togther the y + x info to generate a unique string
-        hover_attributes = zip(x_axis_labels,pixel_data[t['mean_var']][rcp26])
-        hover_text = [generate_hover_str(t['variable'], *attr) for attr in hover_attributes]
-        
-        fig.append_trace(go.Scatter(x=pixel_data.year[rcp26] + t['offset'], y=pixel_data[t['mean_var']][rcp26],
-                                    error_y = dict(type='data',array=pixel_data[t['std_var']][rcp26], width=0, thickness=3),
-                                    mode='markers', marker=dict(color=t['color'], size=10),
-                                    hovertext = hover_text, hoverinfo = "text",
-                                    name=t['variable_desc']),
-                         row=1,col=1)    
-        
-        # The rcp45 figure doesn't get any name text or a legend
-        hover_attributes = zip(x_axis_labels,pixel_data[t['mean_var']][rcp45])
-        hover_text = [generate_hover_str(t['variable'], *attr) for attr in hover_attributes]
-        
-        fig.append_trace(go.Scatter(x=pixel_data.year[rcp26] + t['offset'], y=pixel_data[t['mean_var']][rcp45],
-                                    error_y = dict(type='data',array=pixel_data[t['std_var']][rcp45], width=0, thickness=3),
-                                    mode='markers', marker=dict(color=t['color'], size=10),
-                                    hovertext = hover_text, hoverinfo = "text",
-                                    showlegend=False,
-                                    name=''),
-                         row=2,col=1) 
-    # Horizontal line
+        for scenario_i, s in enumerate(scenarios):
+            scenario_index = pixel_data.scenario==s
+            
+            # Tie togther the y + x info to generate a unique string
+            hover_attributes = zip(x_axis_labels,pixel_data[t['mean_var']][scenario_index])
+            hover_text = [generate_hover_str(t['variable'], *attr) for attr in hover_attributes]
+            
+            fig.append_trace(go.Scatter(x=pixel_data.year[scenario_index] + t['offset'], y=pixel_data[t['mean_var']][scenario_index],
+                                        error_y = dict(type='data',array=pixel_data[t['std_var']][scenario_index], width=0, thickness=3),
+                                        mode='markers', marker=dict(color=t['color'], size=10),
+                                        hovertext = hover_text, hoverinfo = "text",
+                                        name=t['variable_desc'] if s=='rcp26' else '',  # only the top gets legend entries
+                                        showlegend=True if s=='rcp26' else False),
+                             row=scenario_i+1,col=1)    
+    
+    # Horizontal lines 
     hline = dict(type='line', 
                 x0=x_axis_values.min()-10,x1=x_axis_values.max()+10,
                 y0=0,y1=0, 
                 line=dict(color='black',width=2))
-    fig.add_shape(hline, row=1,col=1)
-    fig.add_shape(hline, row=2,col=1)
+    for scenario in range(len(scenarios)):
+        fig.add_shape(hline, row=scenario+1,col=1)
     
     # Specifying axis labels
     fig.update_xaxes(tickmode='array', tickangle=-45,

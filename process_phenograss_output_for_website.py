@@ -51,4 +51,4 @@ annual_integral = annual_integral.rename(columns={'time':'year'})
 for col in ['fCover']:
     annual_integral[col] = annual_integral[col].round(4)
 
-annual_integral.to_csv('phenograss_ann_integral.csv', index=False)
+annual_integral.to_csv('data/phenograss_downscaled_annual_integral.csv', index=False)

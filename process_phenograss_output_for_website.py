@@ -18,7 +18,6 @@ chunk_sizes = dict(latitude=100,
 
 # A mask of where the model is relavant. most of the USA will be excluded. 
 mask = xr.open_dataarray('data/ecoregion_mask.nc')
-mask['longitude'] = mask.longitude - 360
 
 phenograss_files = glob('data/phenograss_nc_files/phenograss_file*.nc4')
 
@@ -46,11 +45,7 @@ annual_integral['longitude'] = np.floor(annual_integral.longitude*2)/2
 
 annual_integral = annual_integral.groupby(['latitude','longitude','model','scenario','time']).agg({'fCover':'mean'}).reset_index()
 
-baseline_avg = annual_integral[annual_integral.time <= 2020].groupby(['latitude','longitude','model','scenario']).fCover.mean().reset_index()
-baseline_avg.rename(columns={'fCover':'fCover_climatology'}, inplace=True)
-
-annual_integral = pd.merge(annual_integral, baseline_avg, on=['latitude','longitude','model','scenario'], how='left')
-annual_integral['fCover_annomoly'] = annual_integral.fCover / annual_integral.fCover_climatology
+annual_integral = annual_integral.rename(columns={'time':'year'})
 
 # knock of some digits to save space in the csv
 for col in ['fCover','fCover_climatology','fCover_annomoly']:

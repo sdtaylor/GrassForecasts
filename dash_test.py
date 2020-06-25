@@ -193,6 +193,13 @@ def display_click_data(clickData):
     return json.dumps(clickData, indent=2)
 
 
+# Setup the timeseries axis
+x_axis_values = np.unique(np.array(display_years) - (np.array(display_years) % year_resolution))
+x_axis_labels = ["{y}'s".format(y=y) for y in x_axis_values]
+y_axis_range  = [-0.3,0.3]
+y_axis_values = [-0.3,-0.2, -0.1, 0, 0.1, 0.2, 0.3]
+y_axis_labels = ['-30%','-20%', '-10%', 'No Change', '+10%', '+20%', '+30%']
+
 @app.callback(
     dash.dependencies.Output('timeseries', 'figure'),
     [dash.dependencies.Input('map', 'clickData')])
@@ -201,7 +208,7 @@ def update_timeseries(clickData):
     try:
         selected_pixel = clickData['points'][0]['location']
     except:
-        selected_pixel = 4681
+        selected_pixel = 3664
     print(selected_pixel)
       
     pixel_data = phenograss_plot_data[(phenograss_plot_data.pixel_id==selected_pixel)]
@@ -212,17 +219,17 @@ def update_timeseries(clickData):
                       'color':'green',
                       'mean_var':'fCover_annomoly_mean',
                       'std_var':'fCover_annomoly_std',
-                      'offset':-0.2},
+                      'offset':-1},
                      {'name':'Change in Temperature',
                       'color':'red',
                       'mean_var':'tmean_annomoly_mean',
                       'std_var':'tmean_annomoly_std',
-                      'offset':0.1},
+                      'offset':0},
                      {'name':'Change in Rain',
                       'color':'blue',
                       'mean_var':'pr_anomaly_mean',
                       'std_var':'pr_anomaly_std',
-                      'offset':0.3}]
+                      'offset':1}]
     
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
                         subplot_titles=['Best Case Scenario (RCP26)','Moderate Case Scenario (RCP45)'])
@@ -230,19 +237,33 @@ def update_timeseries(clickData):
     # Add the 3 different markers in the top figure for rcp26
     for t in traces_to_add:
         fig.append_trace(go.Scatter(x=pixel_data.year[rcp26] + t['offset'], y=pixel_data[t['mean_var']][rcp26],
-                                    error_y = dict(type='data',array=pixel_data[t['std_var']][rcp26], width=0),
-                                    mode='markers', marker=dict(color=t['color']),
+                                    error_y = dict(type='data',array=pixel_data[t['std_var']][rcp26], width=0, thickness=3),
+                                    mode='markers', marker=dict(color=t['color'], size=10),
                                     name=t['name']),
                          row=1,col=1)    
         
-        # The rcp45 figure doesn't get any name text
+        # The rcp45 figure doesn't get any name text or a legend
         fig.append_trace(go.Scatter(x=pixel_data.year[rcp26] + t['offset'], y=pixel_data[t['mean_var']][rcp45],
-                                    error_y = dict(type='data',array=pixel_data[t['std_var']][rcp45], width=0),
-                                    mode='markers', marker=dict(color=t['color']),
+                                    error_y = dict(type='data',array=pixel_data[t['std_var']][rcp45], width=0, thickness=3),
+                                    mode='markers', marker=dict(color=t['color'], size=10),
+                                    showlegend=False,
                                     name=''),
                          row=2,col=1) 
+    hline = dict(type='line', 
+                x0=x_axis_values.min()-10,x1=x_axis_values.max()+10,
+                y0=0,y1=0, 
+                line=dict(color='black',width=2))
+    fig.add_shape(hline, row=1,col=1)
+    fig.add_shape(hline, row=2,col=1)
     
-    fig.update_layout(title = '', height=500, width=800)
+    fig.update_xaxes(tickmode='array', tickangle=-45,
+                     tickvals = x_axis_values, ticktext = x_axis_labels,
+                     gridcolor='grey')
+    fig.update_yaxes(tickmode='array', range=y_axis_range,
+                     tickvals = y_axis_values, ticktext = y_axis_labels,
+                     gridcolor='grey')
+    
+    fig.update_layout(title = '', height=500, width=800, plot_bgcolor='white')
 
     return fig
 

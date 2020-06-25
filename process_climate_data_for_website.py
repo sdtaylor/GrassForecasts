@@ -11,31 +11,22 @@ from dask.distributed import Client
 from dask.diagnostics import ProgressBar
 import dask
 
+from tools import cmip5_file_tools
+
+
+"""
+This script downscales the original cmip5 data to annual values and a spatial
+resolution to match the phenograss output.
+
+I can be setup to run on a dask cluster, but its easier to just get a single HPC 
+with 128GB+ of memory and run it there.
+"""
+
 #################################################
 # Layout all the data
 
 climate_data_folder = 'data/cmip5_nc_files/'
-climate_model_info = [{'climate_model_name':'ccsm4',
-                       'scenario':'rcp26',
-                       'model_file_search_str': '*CCSM4_rcp26*.nc4'},
-                       {'climate_model_name':'ccsm4',
-                       'scenario':'rcp45',
-                       'model_file_search_str': '*CCSM4_rcp45*.nc4'},
-                      
-                        {'climate_model_name':'csiro',
-                         'scenario':'rcp26',
-                         'model_file_search_str': '*CSIRO-Mk3-6-0_rcp26*.nc4'},
-                        {'climate_model_name':'csiro',
-                         'scenario':'rcp45',
-                         'model_file_search_str': '*CSIRO-Mk3-6-0_rcp45*.nc4'},
-                      
-                        {'climate_model_name':'gfdl',
-                         'scenario':'rcp26',
-                         'model_file_search_str': '*GFDL-ESM2G_rcp26*.nc4'},
-                        {'climate_model_name':'gfdl',
-                         'scenario':'rcp45',
-                         'model_file_search_str': '*GFDL-ESM2G_rcp45*.nc4'}
-                      ]
+climate_model_info = cmip5_file_tools.get_cmip5_spec(models='all',scenarios='all')
     
 chunk_sizes = {'latitude':-1 ,'longitude':-1,'time':-1}
 
@@ -49,8 +40,6 @@ from tools import xarray_tools
 ###################################################
 # A mask of where the model is relavant. most of the USA will be excluded. 
 mask = xr.open_dataarray('data/ecoregion_mask.nc')
-mask['longitude'] = mask.longitude - 360
-
 
 all_climate = []
 for ds_i, ds_info in enumerate(climate_model_info):
@@ -75,17 +64,11 @@ for ds_i, ds_info in enumerate(climate_model_info):
 
     ann = ann.groupby(['latitude','longitude','model','scenario','time']).agg({'tmean':'mean','pr':'mean'}).reset_index()
 
-    baseline_avg = ann[ann.time<=2020].groupby(['latitude','longitude','model','scenario']).agg({'tmean':'mean','pr':'mean'}).reset_index()
-    baseline_avg.rename(columns={'tmean':'tmean_climatology','pr':'pr_climatology'}, inplace=True)
-
-    ann = pd.merge(ann, baseline_avg, on=['latitude','longitude','model','scenario'], how='left')
-    ann['tmean_annomoly'] = ann.tmean / ann.tmean_climatology
-    ann['pr_anomaly'] = ann.pr / ann.pr_climatology
+    ann = rename(columns={'time':'year'})
   
     # knock of some digits to save space in the csv
-    for col in ['tmean','tmean_climatology','tmean_annomoly','pr','pr_climatology','pr_anomaly']:
+    for col in ['tmean','pr']:
         ann[col] = ann[col].round(3)
-
 
     all_climate.append(ann)
     ds.close()

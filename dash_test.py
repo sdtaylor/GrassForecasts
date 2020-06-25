@@ -99,6 +99,14 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 page_title_text = html.Div([html.H1("Grassland Productivity Long Term Forecast")],
                                 style={'textAlign': "center", "padding-bottom": "30"})
 
+description_container = html.Div([
+                           dcc.Markdown(d('''
+                            Selected within the shaded areas of the map to view long-term forecasts for that location.                           
+                           ''')),
+                           html.Pre(id='page-description')
+                           ]
+                           )
+
 response_radio_container = html.Div(id='response-radio-container',
                                     children = [
                                         html.P(
@@ -145,8 +153,11 @@ markdown_container = html.Div([
                            
 app.layout = html.Div(id='page-container',
                       children=[
-                          
-                          page_title_text,
+                          html.Div(id='header-text',
+                                   children = [
+                                       page_title_text,
+                                       description_container
+                                       ],style={'columnCount':1}),
                           
                           html.Div(id='figure-container',
                                    children = [
@@ -177,8 +188,12 @@ def display_click_data(clickData):
     [dash.dependencies.Input('map', 'clickData')])
 def update_timeseries(clickData):
     print(clickData)
-    selected_pixel = clickData['points'][0]['location']
+    try:
+        selected_pixel = clickData['points'][0]['location']
+    except:
+        selected_pixel = 4681
     print(selected_pixel)
+      
     pixel_data = phenograss_plot_data[(phenograss_plot_data.pixel_id==selected_pixel)]
     rcp26 = pixel_data.scenario=='rcp26'
     rcp45 = pixel_data.scenario=='rcp45'
@@ -232,15 +247,19 @@ def update_map(value):
                     geojson=us_grid,
                     z = np.repeat(1,len(dff)), # Make all fill values the same so it displays a single color
                     showscale=False,
-                    marker = dict(opacity=0.5, line_color='red', line_width=0.2),
-                    colorscale="Greys",
+                    marker = dict(line_color='red', line_width=0.2),
+                    colorscale="Reds",
                     locations = dff['pixel_id'],
                     featureidkey='id',
                     hoverinfo='location',
+                    selectedpoints = [842], # The index of pixel_id 4681
+                    selected = dict(marker_opacity=1.0),
+                    unselected = dict(marker_opacity=0.2),
                     )
     
     return {"data": [trace],
-             "layout": go.Layout(title='layout title',height=500,width=700,
+             "layout": go.Layout(title=None,
+                                 height=500,width=700,
                                  mapbox_style='stamen-terrain',
                                  mapbox_zoom=3, mapbox_center = {"lat": 40, "lon": -100})}
 

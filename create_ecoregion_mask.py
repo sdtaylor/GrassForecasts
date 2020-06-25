@@ -12,7 +12,7 @@ base_grid_file = 'data/cmip5_nc_files/BCCA_0.125deg_tasmax_day_CCSM4_rcp26_r1i1p
 ecoregions = gpd.read_file('data/ecoregions/NA_CEC_Eco_Level1.shp')
 
 #                     Great plains
-ecoregions_to_keep = ['GREAT PLAINS']
+ecoregions_to_keep = ['GREAT PLAINS','EASTERN TEMPERATE FORESTS']
 
 ecoregions = ecoregions[ecoregions.NA_L1NAME.isin(ecoregions_to_keep)]
 
@@ -40,6 +40,9 @@ with xr.open_dataset(base_grid_file) as base_grid_nc:
 
 # Combine the two & save
 mask_nc[:] = mask
+
+# match the longitude to phenograss output, website input
+mask_nc['longitude'] = mask_nc.longitude - 360
 
 mask_nc.attrs = {'notes':'mask using ecoregions, with spatial extent/scale of the reference dataset. True indicates where the ecoregion is located.',
                  'ecoregions' : ','.join(ecoregions_to_keep),

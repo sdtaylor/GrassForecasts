@@ -67,7 +67,7 @@ for ds_i, ds_info in enumerate(climate_model_info):
 
     ann = ann.groupby(['latitude','longitude','model','scenario','time']).agg({'tmean':'mean','pr':'mean'}).reset_index()
 
-    ann = rename(columns={'time':'year'})
+    ann = ann.rename(columns={'time':'year'})
   
     # knock of some digits to save space in the csv
     for col in ['tmean','pr']:

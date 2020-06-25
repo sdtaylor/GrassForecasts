@@ -21,30 +21,40 @@ from tools.etc import build_geojson_grid
 #################################################                                    
 #################################################
 
+climatology_years = range(1990,2011)
+display_years = range(1990,2100)
+year_resolution = 10 # final figure will display the average of this many years.
+
+################################
 climate_data = pd.read_csv('data/climate_annual_data.csv')
-phenograss_data = pd.read_csv('phenograss_ann_integral.csv')
-phenograss_data = pd.merge(phenograss_data, climate_data, how='left', on=['latitude', 'longitude', 'model', 'scenario', 'time'])
+phenograss_data = pd.read_csv('data/phenograss_downscaled_annual_integral.csv')
+phenograss_data = pd.merge(phenograss_data, climate_data, how='right', on=['latitude', 'longitude', 'model', 'scenario', 'year'])
+
+# TODO: quick check that all timeseries are intact, and all models/secnarios avaialble
+
+climatology = phenograss_data[phenograss_data.year.isin(climatology_years)]
+climatology = climatology.groupby(['latitude','longitude','model','scenario']).agg({'fCover':'mean','tmean':'mean','pr':'mean'}).reset_index()
+                                                                                      
+climatology.rename(columns={'fCover':'fCover_climatology','tmean':'tmean_climatology','pr':'pr_climatology'}, inplace=True)
+
+# subset to desired years and aggregate to larger temporal resolution
+phenograss_data = phenograss_data[phenograss_data.year.isin(display_years)]
+phenograss_data['year'] = phenograss_data.year - (phenograss_data.year % year_resolution)
+phenograss_data = phenograss_data.groupby(['latitude','longitude','model','scenario','year']).agg({'fCover':'mean','tmean':'mean','pr':'mean'}).reset_index()
+
+phenograss_data = pd.merge(phenograss_data, climatology, on=['latitude','longitude','model','scenario'], how='left')
+
+phenograss_data['fCover_annomoly'] = (phenograss_data.fCover / phenograss_data.fCover_climatology) - 1
+phenograss_data['tmean_annomoly']  = (phenograss_data.tmean  / phenograss_data.tmean_climatology)  - 1
+phenograss_data['pr_anomaly']      = (phenograss_data.pr     / phenograss_data.pr_climatology)     - 1
 
 
-# baseline_avg = annual_integral[annual_integral.time <= 2020].groupby(['latitude','longitude','model','scenario']).fCover.mean().reset_index()
-# baseline_avg.rename(columns={'fCover':'fCover_climatology'}, inplace=True)
-
-# annual_integral = pd.merge(annual_integral, baseline_avg, on=['latitude','longitude','model','scenario'], how='left')
-# annual_integral['fCover_annomoly'] = annual_integral.fCover / annual_integral.fCover_climatology
-
-
-phenograss_data['year'] = phenograss_data.time
-
-# Convert everything to percetage pluse/minux
-for var in ['fCover_annomoly','tmean_annomoly','pr_anomaly']:
-    phenograss_data[var] = phenograss_data[var] -1
-#phenograss_data = phenograss_data[phenograss_data.year >= min_year]
 
 # The 5 year moving window average
 #running_avg = phenograss_data.groupby(['latitude','longitude','model','scenario']).rolling(window=5,min_periods=5,on='year').fCover_annomoly.mean().reset_index()
 #phenograss_data = phenograss_data.drop(columns='fCover_annomoly').merge(running_avg, how='left', on=['latitude','longitude','model','scenario','year'])
 
-# One data point per year/scenario, different models are averaged togehter for a mean/sd
+# One data point per year/scenario, different models are averaged together for a mean/sd
 # This should not be so convoluted but omg doing groupby stuff in pandas is a total chore
 
 annual_mean = phenograss_data.groupby(['latitude','longitude','year','scenario']).agg({'fCover_annomoly':'mean',

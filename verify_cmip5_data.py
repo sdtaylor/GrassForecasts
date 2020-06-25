@@ -26,8 +26,8 @@ for ds_i, ds_info in enumerate(climate_model_info):
     
     cmip5_file_tools.verify_cmip5_parts(ds,
                                         expected_vars=['pr','tasmin','tasmax','tmean'],
-                                        expected_start_time = '1980-01-01',
-                                        expected_end_time   = '2100-12-31')
+                                        expected_start_date = '1980-01-01',
+                                        expected_end_date   = '2100-12-31')
 
 
 # Thats it!

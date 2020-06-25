@@ -22,13 +22,20 @@ from tools.etc import build_geojson_grid
 #################################################
 
 climate_data = pd.read_csv('data/climate_annual_data.csv')
-
 phenograss_data = pd.read_csv('phenograss_ann_integral.csv')
-
 phenograss_data = pd.merge(phenograss_data, climate_data, how='left', on=['latitude', 'longitude', 'model', 'scenario', 'time'])
+
+
+# baseline_avg = annual_integral[annual_integral.time <= 2020].groupby(['latitude','longitude','model','scenario']).fCover.mean().reset_index()
+# baseline_avg.rename(columns={'fCover':'fCover_climatology'}, inplace=True)
+
+# annual_integral = pd.merge(annual_integral, baseline_avg, on=['latitude','longitude','model','scenario'], how='left')
+# annual_integral['fCover_annomoly'] = annual_integral.fCover / annual_integral.fCover_climatology
+
 
 phenograss_data['year'] = phenograss_data.time
 
+# Convert everything to percetage pluse/minux
 for var in ['fCover_annomoly','tmean_annomoly','pr_anomaly']:
     phenograss_data[var] = phenograss_data[var] -1
 #phenograss_data = phenograss_data[phenograss_data.year >= min_year]
@@ -53,19 +60,26 @@ annual_std.rename(columns={'fCover_annomoly':'fCover_annomoly_std','tmean_annomo
 phenograss_plot_data = pd.merge(annual_mean, annual_std, on=['latitude','longitude','year','scenario'] , how='left')
 
 
-pixel_ids = phenograss_data[['latitude','longitude']].drop_duplicates().reset_index().drop(columns=['index'])
-pixel_ids['pixel_id'] = pixel_ids.index
-phenograss_data = pd.merge(phenograss_data ,pixel_ids, on=['latitude','longitude'], how='left')
-phenograss_plot_data = pd.merge(phenograss_plot_data ,pixel_ids, on=['latitude','longitude'], how='left')
+# Setup the USA grid. The mask contains the bounderies of the full grid, though
+# not every area will have data.
+mask = pd.read_csv('data/ecoregion_mask.csv')
 
-us_grid = build_geojson_grid(phenograss_data, polygon_buffer=0.9)
+pixel_ids = mask[['latitude','longitude']].drop_duplicates().reset_index().drop(columns=['index'])
+pixel_ids['pixel_id'] = pixel_ids.index
+
+us_grid = build_geojson_grid(mask, polygon_resolution=0.499)
 us_grid = json.loads(us_grid.to_json())
 n_features = len(us_grid['features'])
 [f.update(id=i) for i,f in enumerate(us_grid['features'])]
 # TODO: make feature numbers based on the pixel_id column in phenograss_data
 
+# Assign the pixel id's back to data
+phenograss_data = pd.merge(phenograss_data ,pixel_ids, on=['latitude','longitude'], how='left')
+phenograss_plot_data = pd.merge(phenograss_plot_data ,pixel_ids, on=['latitude','longitude'], how='left')
+
 # Mean climatology for each pixel, which varies slightly among models/scenarios
 map_data = phenograss_data[['pixel_id','fCover_climatology']].groupby(['pixel_id']).fCover_climatology.mean().reset_index()
+
 
 #################################################                                    
 #################################################
@@ -214,16 +228,19 @@ def update_timeseries(clickData):
 def update_map(value):
     dff = map_data
     
-    trace = go.Choropleth(
+    trace = go.Choroplethmapbox(
                     geojson=us_grid,
                     z = dff['fCover_climatology'],
                     locations = dff['pixel_id'],
                     featureidkey='id',
-                    locationmode='geojson-id'
+                    #locationmode='geojson-id',
+                    hoverinfo='location',
                     )
     
     return {"data": [trace],
-             "layout": go.Layout(title='layout title',height=500,width=700,geo_scope='usa',geo={'showframe': False,'showcoastlines': False})}
+             "layout": go.Layout(title='layout title',height=500,width=700,
+                                 mapbox_style='carto-positron',
+                                 mapbox_zoom=2, mapbox_center = {"lat": 40, "lon": -100})}
 
 
 #################################################                                    

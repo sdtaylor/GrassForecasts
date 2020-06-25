@@ -230,17 +230,19 @@ def update_map(value):
     
     trace = go.Choroplethmapbox(
                     geojson=us_grid,
-                    z = dff['fCover_climatology'],
+                    z = np.repeat(1,len(dff)), # Make all fill values the same so it displays a single color
+                    showscale=False,
+                    marker = dict(opacity=0.5, line_color='red', line_width=0.2),
+                    colorscale="Greys",
                     locations = dff['pixel_id'],
                     featureidkey='id',
-                    #locationmode='geojson-id',
                     hoverinfo='location',
                     )
     
     return {"data": [trace],
              "layout": go.Layout(title='layout title',height=500,width=700,
-                                 mapbox_style='carto-positron',
-                                 mapbox_zoom=2, mapbox_center = {"lat": 40, "lon": -100})}
+                                 mapbox_style='stamen-terrain',
+                                 mapbox_zoom=3, mapbox_center = {"lat": 40, "lon": -100})}
 
 
 #################################################                                    

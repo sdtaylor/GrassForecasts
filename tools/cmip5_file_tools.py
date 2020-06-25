@@ -10,7 +10,7 @@ def get_cmip5_spec(models='all',scenarios='all'):
     assert isinstance(models, list) or models=='all', 'models must be list or all'
     assert isinstance(scenarios, list) or scenarios=='all', 'scenarios must be list or all'
     
-    all_models = ['ccsm4','csiro']
+    all_models = ['ccsm4','csiro','gfdl','miroc5','noresm1']
     all_scenarios = ['rcp26','rcp45','rcp60','rcp85']
     
     if models == 'all':
@@ -41,9 +41,9 @@ def get_cmip5_spec(models='all',scenarios='all'):
                  {'climate_model_name':'csiro',
                   'scenario':'rcp45',
                   'model_file_search_str': '*CSIRO-Mk3-6-0'},
-                 {'climate_model_name':'csiro',
-                  'scenario':'rcp60',
-                  'model_file_search_str': '*CSIRO-Mk3-6-0'},
+                # {'climate_model_name':'csiro',
+                #  'scenario':'rcp60',
+                #  'model_file_search_str': '*CSIRO-Mk3-6-0'},
                  {'climate_model_name':'csiro',
                   'scenario':'rcp85',
                   'model_file_search_str': '*CSIRO-Mk3-6-0'},

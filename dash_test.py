@@ -179,7 +179,26 @@ app.layout = html.Div(id='page-container',
                           response_radio_container
                           ], style={'align-items':'center',
                                     'justify-content':'center'})
-                                 
+
+def generate_hover_str(variable, timeperiod, percent_change):
+    if timeperiod in ["1990's","2000's","2010's",]:
+        # dont make claims about the past
+        return ''
+
+    s = '{v} is expected to {m} {p}% by the {t} in this scenario'
+    
+    if not np.isnan(percent_change):
+        change_verb = 'increase' if percent_change>0 else 'decrease'
+    else:
+        return ''
+    
+    s = s.format(v = variable,
+                 m = change_verb,
+                 p = int(percent_change*100),
+                 t = timeperiod)
+    
+    return s
+    
 #################################################                                    
 #################################################
 # Interactions / callbacks
@@ -200,6 +219,8 @@ y_axis_range  = [-0.3,0.3]
 y_axis_values = [-0.3,-0.2, -0.1, 0, 0.1, 0.2, 0.3]
 y_axis_labels = ['-30%','-20%', '-10%', 'No Change', '+10%', '+20%', '+30%']
 
+
+
 @app.callback(
     dash.dependencies.Output('timeseries', 'figure'),
     [dash.dependencies.Input('map', 'clickData')])
@@ -212,20 +233,24 @@ def update_timeseries(clickData):
     print(selected_pixel)
       
     pixel_data = phenograss_plot_data[(phenograss_plot_data.pixel_id==selected_pixel)]
+    
     rcp26 = pixel_data.scenario=='rcp26'
     rcp45 = pixel_data.scenario=='rcp45'
     
-    traces_to_add = [{'name':'Change in Productivity',
+    traces_to_add = [{'variable_desc':'Change in Grassland Productivity',
+                      'variable': 'Grassland productivity',
                       'color':'green',
                       'mean_var':'fCover_annomoly_mean',
                       'std_var':'fCover_annomoly_std',
                       'offset':-1},
-                     {'name':'Change in Temperature',
+                     {'variable_desc':'Change in Average Yearly Temperature',
+                      'variable': 'Average yearly temperature',
                       'color':'red',
                       'mean_var':'tmean_annomoly_mean',
                       'std_var':'tmean_annomoly_std',
                       'offset':0},
-                     {'name':'Change in Rain',
+                     {'variable_desc':'Change in Average Yearly Rain',
+                      'variable': 'Average yearly rain',
                       'color':'blue',
                       'mean_var':'pr_anomaly_mean',
                       'std_var':'pr_anomaly_std',
@@ -236,19 +261,30 @@ def update_timeseries(clickData):
     
     # Add the 3 different markers in the top figure for rcp26
     for t in traces_to_add:
+        
+        # Tie togther the y + x info to generate a unique string
+        hover_attributes = zip(x_axis_labels,pixel_data[t['mean_var']][rcp26])
+        hover_text = [generate_hover_str(t['variable'], *attr) for attr in hover_attributes]
+        
         fig.append_trace(go.Scatter(x=pixel_data.year[rcp26] + t['offset'], y=pixel_data[t['mean_var']][rcp26],
                                     error_y = dict(type='data',array=pixel_data[t['std_var']][rcp26], width=0, thickness=3),
                                     mode='markers', marker=dict(color=t['color'], size=10),
-                                    name=t['name']),
+                                    hovertext = hover_text, hoverinfo = "text",
+                                    name=t['variable_desc']),
                          row=1,col=1)    
         
         # The rcp45 figure doesn't get any name text or a legend
+        hover_attributes = zip(x_axis_labels,pixel_data[t['mean_var']][rcp45])
+        hover_text = [generate_hover_str(t['variable'], *attr) for attr in hover_attributes]
+        
         fig.append_trace(go.Scatter(x=pixel_data.year[rcp26] + t['offset'], y=pixel_data[t['mean_var']][rcp45],
                                     error_y = dict(type='data',array=pixel_data[t['std_var']][rcp45], width=0, thickness=3),
                                     mode='markers', marker=dict(color=t['color'], size=10),
+                                    hovertext = hover_text, hoverinfo = "text",
                                     showlegend=False,
                                     name=''),
                          row=2,col=1) 
+    # Horizontal line
     hline = dict(type='line', 
                 x0=x_axis_values.min()-10,x1=x_axis_values.max()+10,
                 y0=0,y1=0, 
@@ -256,6 +292,7 @@ def update_timeseries(clickData):
     fig.add_shape(hline, row=1,col=1)
     fig.add_shape(hline, row=2,col=1)
     
+    # Specifying axis labels
     fig.update_xaxes(tickmode='array', tickangle=-45,
                      tickvals = x_axis_values, ticktext = x_axis_labels,
                      gridcolor='grey')
@@ -263,7 +300,7 @@ def update_timeseries(clickData):
                      tickvals = y_axis_values, ticktext = y_axis_labels,
                      gridcolor='grey')
     
-    fig.update_layout(title = '', height=500, width=800, plot_bgcolor='white')
+    fig.update_layout(title = '', height=800, width=1000, plot_bgcolor='white')
 
     return fig
 

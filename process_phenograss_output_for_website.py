@@ -48,7 +48,7 @@ annual_integral = annual_integral.groupby(['latitude','longitude','model','scena
 annual_integral = annual_integral.rename(columns={'time':'year'})
 
 # knock of some digits to save space in the csv
-for col in ['fCover','fCover_climatology','fCover_annomoly']:
-    annual_integral[col] = annual_integral[col].round(2)
+for col in ['fCover']:
+    annual_integral[col] = annual_integral[col].round(4)
 
 annual_integral.to_csv('phenograss_ann_integral.csv', index=False)

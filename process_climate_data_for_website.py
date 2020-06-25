@@ -43,7 +43,10 @@ mask = xr.open_dataarray('data/ecoregion_mask.nc')
 
 all_climate = []
 for ds_i, ds_info in enumerate(climate_model_info):
-    model_files = glob(climate_data_folder + ds_info['model_file_search_str'])
+    model_files = cmip5_file_tools.get_cmip5_files(model_spec = ds_info,
+                                                   base_folder = climate_data_folder,
+                                                   get_historic=True)
+    
     ds = xarray_tools.compile_cmip_data(climate_model_name =  ds_info['climate_model_name'], 
                                               scenario =            ds_info['scenario'], 
                                               climate_model_files = model_files, 

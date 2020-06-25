@@ -106,6 +106,7 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
+# Title text and lower description
 page_title_text = html.Div([html.H1("Grassland Productivity Long Term Forecast")],
                                 style={'textAlign': "center", "padding-bottom": "30"})
 
@@ -117,26 +118,37 @@ description_container = html.Div([
                            ]
                            )
 
-response_radio_container = html.Div(id='response-radio-container',
-                                    children = [
-                                        html.P(
-                                            id='response-radio-text',
-                                            children = 'Select a year'
-                                            ),
-                                        dcc.RadioItems(
-                                            id = 'year-select',
-                                            options = [2010,2020,2030,2040],
-                                            value  = 2010
-                                            )
-                                        ])
+
+######################
+# The map
+map_trace = go.Choroplethmapbox(
+                    geojson=us_grid,
+                    z = np.repeat(1,len(map_data)), # Make all fill values the same so it displays a single color
+                    showscale=False,
+                    marker = dict(line_color='red', line_width=0.2),
+                    colorscale="Reds",
+                    locations = map_data['pixel_id'],
+                    featureidkey='id',
+                    hoverinfo='location',
+                    selectedpoints = [842], # The index of pixel_id 4681
+                    selected = dict(marker_opacity=1.0),
+                    unselected = dict(marker_opacity=0.2),
+                    )
+map_layout = go.Layout(title=None,
+                       height=500,width=700,
+                       mapbox_style='stamen-terrain',
+                       mapbox_zoom=3, mapbox_center = {"lat": 40, "lon": -100})
 
 map_container = html.Div(id='map-container',
                            children = [
-                               html.P(id='map-title',
-                                      children=''),
-                               dcc.Graph(id='map')
-                               ]
-                           )
+                                   html.P(id='map-title',
+                                          children=''),
+                                   dcc.Graph(id='map',
+                                             figure = {
+                                                 'data': [map_trace],
+                                                 'layout': map_layout
+                                                 })
+                                      ])
 
 timeseries_container = html.Div(id='timeseries-container',
                            children = [
@@ -176,9 +188,8 @@ app.layout = html.Div(id='page-container',
                                        ],style={'columnCount':2}),
                           
                           markdown_container,
-                          response_radio_container
-                          ], style={'align-items':'center',
-                                    'justify-content':'center'})
+                          ], style={'align-items':'left',
+                                    'justify-content':'left'})
 
 def generate_hover_str(variable, timeperiod, percent_change):
     if timeperiod in ["1990's","2000's","2010's",]:
@@ -297,34 +308,6 @@ def update_timeseries(clickData):
     fig.update_layout(title = '', height=800, width=1000, plot_bgcolor='white')
 
     return fig
-
-@app.callback(
-    dash.dependencies.Output("map", "figure"),
-    [dash.dependencies.Input('year-select','value')]
-)
-def update_map(value):
-    dff = map_data
-    
-    trace = go.Choroplethmapbox(
-                    geojson=us_grid,
-                    z = np.repeat(1,len(dff)), # Make all fill values the same so it displays a single color
-                    showscale=False,
-                    marker = dict(line_color='red', line_width=0.2),
-                    colorscale="Reds",
-                    locations = dff['pixel_id'],
-                    featureidkey='id',
-                    hoverinfo='location',
-                    selectedpoints = [842], # The index of pixel_id 4681
-                    selected = dict(marker_opacity=1.0),
-                    unselected = dict(marker_opacity=0.2),
-                    )
-    
-    return {"data": [trace],
-             "layout": go.Layout(title=None,
-                                 height=500,width=700,
-                                 mapbox_style='stamen-terrain',
-                                 mapbox_zoom=3, mapbox_center = {"lat": 40, "lon": -100})}
-
 
 #################################################                                    
 #################################################

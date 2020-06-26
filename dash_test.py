@@ -88,8 +88,12 @@ phenograss_data = pd.merge(phenograss_data ,pixel_ids, on=['latitude','longitude
 phenograss_plot_data = pd.merge(phenograss_plot_data ,pixel_ids, on=['latitude','longitude'], how='left')
 
 # Mean climatology for each pixel, which varies slightly among models/scenarios
-map_data = phenograss_data[['pixel_id','fCover_climatology']].groupby(['pixel_id']).fCover_climatology.mean().reset_index()
+map_data = phenograss_data[['latitude','longitude','pixel_id','fCover_climatology']].groupby(['latitude','longitude','pixel_id']).fCover_climatology.mean().reset_index()
 
+def map_hover_text(row):
+    return '{lat} Latitude\n{lon} Longitude'.format(lat=row.latitude, lon=row.longitude)
+
+map_data['hover_text'] = map_data.apply(map_hover_text, axis=1)
 
 #################################################                                    
 #################################################
@@ -125,14 +129,15 @@ map_trace = go.Choroplethmapbox(
                     geojson=us_grid,
                     z = np.repeat(1,len(map_data)), # Make all fill values the same so it displays a single color
                     showscale=False,
-                    marker = dict(line_color='red', line_width=0.2),
+                    marker = dict(opacity=0.2,line_color='red', line_width=0.2),
                     colorscale="Reds",
                     locations = map_data['pixel_id'],
                     featureidkey='id',
-                    hoverinfo='location',
-                    selectedpoints = [842], # The index of pixel_id 4681
-                    selected = dict(marker_opacity=1.0),
-                    unselected = dict(marker_opacity=0.2),
+                    hoverinfo='text',
+                    hovertext = map_data['hover_text'],
+                    #selectedpoints = [842], # The index of pixel_id 4681     # docs sort of imply these control the "on/off"
+                    #selected = dict(marker_opacity=1.0),                     # of the selected location, but that doesn't seem
+                    #unselected = dict(marker_opacity=0.2),                   # to be the case. Likely need to implement in a callback
                     )
 map_layout = go.Layout(title=None,
                        height=500,width=700,
@@ -252,19 +257,19 @@ def update_timeseries(clickData):
     
     traces_to_add = [{'variable_desc':'Change in Grassland Productivity',
                       'variable': 'Grassland productivity',
-                      'color':'green',
+                      'color':'#009E73',
                       'mean_var':'fCover_annomoly_mean',
                       'std_var':'fCover_annomoly_std',
                       'offset':-1},
                      {'variable_desc':'Change in Average Yearly Temperature',
                       'variable': 'Average yearly temperature',
-                      'color':'red',
+                      'color':'#d5000d',
                       'mean_var':'tmean_annomoly_mean',
                       'std_var':'tmean_annomoly_std',
                       'offset':0},
                      {'variable_desc':'Change in Average Yearly Rain',
                       'variable': 'Average yearly rain',
-                      'color':'blue',
+                      'color':'#0072B2',
                       'mean_var':'pr_anomaly_mean',
                       'std_var':'pr_anomaly_std',
                       'offset':1}]

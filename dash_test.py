@@ -140,7 +140,8 @@ map_trace = go.Choroplethmapbox(
                     #unselected = dict(marker_opacity=0.2),                   # to be the case. Likely need to implement in a callback
                     )
 map_layout = go.Layout(title=None,
-                       height=500,width=700,
+                       height=900,width=500,
+                       margin=dict(l=20, r=20, t=20, b=20),
                        mapbox_style='stamen-terrain',
                        mapbox_zoom=3, mapbox_center = {"lat": 40, "lon": -100})
 
@@ -292,7 +293,8 @@ def update_timeseries(clickData):
                                         hovertext = hover_text, hoverinfo = "text",
                                         name=t['variable_desc'] if s=='rcp26' else '',  # only the top gets legend entries
                                         showlegend=True if s=='rcp26' else False),
-                             row=scenario_i+1,col=1)    
+                             row=scenario_i+1,col=1)
+            
     
     # Horizontal lines 
     hline = dict(type='line', 
@@ -310,7 +312,9 @@ def update_timeseries(clickData):
                      tickvals = y_axis_values, ticktext = y_axis_labels,
                      gridcolor='grey')
     
-    fig.update_layout(title = '', height=800, width=1000, plot_bgcolor='white')
+    fig.update_layout(legend=dict(x=0, y=-0.5))
+    fig.update_layout(margin=dict(l=50, r=50, t=50, b=50))
+    fig.update_layout(title = '', height=600, plot_bgcolor='white')
 
     return fig
 

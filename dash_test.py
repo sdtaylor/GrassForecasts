@@ -30,6 +30,9 @@ climate_data = pd.read_csv('data/climate_annual_data.csv')
 phenograss_data = pd.read_csv('data/phenograss_downscaled_annual_integral.csv')
 phenograss_data = pd.merge(phenograss_data, climate_data, how='right', on=['latitude', 'longitude', 'model', 'scenario', 'year'])
 
+# clear this out to save memory
+climate_data = None
+
 # TODO: quick check that all timeseries are intact, and all models/secnarios avaialble
 
 climatology = phenograss_data[phenograss_data.year.isin(climatology_years)]
@@ -109,6 +112,9 @@ climate_models = phenograss_data.model.unique()
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+
+# server object used for wsgi integration
+server = app.server
 
 # Title text and lower description
 page_title_text = html.Div([html.H1("Grassland Productivity Long Term Forecast")],

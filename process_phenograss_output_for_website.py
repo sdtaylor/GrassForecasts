@@ -1,4 +1,5 @@
 from glob import glob
+from os import path
 
 import xarray as xr
 import pandas as pd
@@ -24,20 +25,37 @@ phenograss_files = glob('data/phenograss_nc_files/phenograss_file*.nc4')
 annual_integral_objs = []
 for file_i, filepath in enumerate(phenograss_files):
     print('file: {i}'.format(i=file_i))
+    ecoregion = path.basename(filepath).split('_')[-2]
     p = xr.open_dataset(filepath, chunks=chunk_sizes)
+    
+    # add an ecoregion dimension to pair it with the ecoregion mask
+    p = p.expand_dims({'ecoregion':[ecoregion]})
+    
+    # Get annual integral. The sum of all fCover values in a calendar year
     p['time'] = p['time.year']
     annual_fCover = p.groupby('time').sum().compute()
-    #upscaled = p.coarsen(latitude=6).mean().coarsen(longitude=6).mean().compute()
     
     annual_integral_objs.append(annual_fCover)
 
 annual_integral = xr.combine_by_coords(annual_integral_objs)
 
-annual_integral = xr.merge([annual_integral, mask.astype(bool)])
+# Combine all ecoregions into a single layer here. 
+#
+# The phenograss models are ecoregion specific, but for simplicity are 
+# applied over the entire USA climate grids. So, for each location the correct
+# model prediction for that ecoregion must be pulled.
+#
+# In the ecoregion mask every location has an ecoregion dimension. 
+# ie for 3 ecoregions it would be [1,0,0] for ['GrPlains','NWForests','ETemperateForest']
+# Thus taking the average using the ecoregion mask as weights here will
+# pull the correction value.
+annual_integral = annual_integral.weighted(mask.astype(int)).mean('ecoregion') 
+
 annual_integral = annual_integral.to_dataframe().reset_index()
 
-annual_integral = annual_integral[annual_integral.ecoregion_mask]
-
+# NA values are locations where no ecoregion was specified. ie. a mask of [0,0,0]
+# This happens outside the ecoregions designated in create_ecoregion_mask.py
+annual_integral = annual_integral.dropna(0)
 
 # coarsen to 0.5 degree lat/lon
 annual_integral['latitude'] = np.floor(annual_integral.latitude*2)/2

@@ -39,7 +39,9 @@ from tools import xarray_tools
 
 ###################################################
 # A mask of where the model is relavant. most of the USA will be excluded. 
+# climate data does not use ecoregions, so just aggregate it all to a single layer.
 mask = xr.open_dataarray('data/ecoregion_mask.nc')
+mask = mask.max('ecoregion')
 
 all_climate = []
 for ds_i, ds_info in enumerate(climate_model_info):

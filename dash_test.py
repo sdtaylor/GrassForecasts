@@ -196,19 +196,28 @@ app.layout = html.Div(id='page-container',
                           html.Div(id='figure-container',
                                    children = [
                                        map_container,
-                                       timeseries_container
+                                       html.Div([
+                                           dcc.Tabs(id='timeseries-tabs', value='rcp26', children=[
+                                               dcc.Tab(label='RCP26', value='rcp26'),
+                                               dcc.Tab(label='RCP45', value='rcp45'),
+                                               dcc.Tab(label='RCP60', value='rcp60'),
+                                               dcc.Tab(label='RCP85', value='rcp85')
+                                           ]),
+                                           timeseries_container
+                                           ])
                                        ],style={'columnCount':2}),
                           
                           markdown_container,
                           ], style={'align-items':'left',
                                     'justify-content':'left'})
 
+#TODO: need different wording for temperature
 def generate_hover_str(variable, timeperiod, percent_change):
     if timeperiod in ["1990's","2000's","2010's",]:
         # dont make claims about the past
         return ''
 
-    s = '{v} is expected to {m} {p}% by the {t} in this scenario'
+    s = '{v} is expected to <br><b>{m}</b> {p}% by the {t} in this scenario'
     
     if not np.isnan(percent_change):
         change_verb = 'increase' if percent_change>0 else 'decrease'
@@ -238,68 +247,101 @@ def display_click_data(clickData):
 # Setup the timeseries axis
 x_axis_values = np.unique(np.array(display_years) - (np.array(display_years) % year_resolution))
 x_axis_labels = ["{y}'s".format(y=y) for y in x_axis_values]
-y_axis_range  = [-0.3,0.3]
-y_axis_values = [-0.3,-0.2, -0.1, 0, 0.1, 0.2, 0.3]
-y_axis_labels = ['-30%','-20%', '-10%', 'No Change', '+10%', '+20%', '+30%']
 
+y_axis_percent_values = [-0.2, -0.1, 0, 0.1, 0.2, 0.3]
+# Make labels like -30%, +20%, No change for 0
+y_axis_percent_labels = []
+for v in y_axis_percent_values:
+    if v < 0:
+        y_axis_percent_labels.append(str(int(v*100))+'%')
+    elif v > 0:
+        y_axis_percent_labels.append('+'+str(int(v*100))+'%')
+    else:
+        y_axis_percent_labels.append('No Change')
 
-
+y_axis_temp_values = [-1,0,1,2,3,4]
+y_axis_temp_labels = []
+for v in y_axis_temp_values:
+    if v < 0:
+        y_axis_temp_labels.append(str(v)+'° C')
+    elif v > 0:
+        y_axis_temp_labels.append('+'+str(v)+'° C')
+    else:
+        y_axis_temp_labels.append('No Change')
+        
+        
 @app.callback(
     dash.dependencies.Output('timeseries', 'figure'),
-    [dash.dependencies.Input('map', 'clickData')])
-def update_timeseries(clickData):
+    [dash.dependencies.Input('map', 'clickData'),
+     dash.dependencies.Input('timeseries-tabs', 'value')])
+def update_timeseries(clickData, value):
     print(clickData)
     try:
         selected_pixel = clickData['points'][0]['location']
     except:
         selected_pixel = 3664
     print(selected_pixel)
-      
-    pixel_data = phenograss_plot_data[(phenograss_plot_data.pixel_id==selected_pixel)]
     
-    rcp26 = pixel_data.scenario=='rcp26'
-    rcp45 = pixel_data.scenario=='rcp45'
-    scenarios = ['rcp26','rcp45']
-    scenario_titles = ['Best Case Scenario (RCP26)','Moderate Case Scenario (RCP45)']
+    print('selected_tab: '+str(value))
+    selected_scenario = value
     
-    traces_to_add = [{'variable_desc':'Change in Grassland Productivity',
+    pixel_data = phenograss_plot_data[(phenograss_plot_data.pixel_id==selected_pixel) & (phenograss_plot_data.scenario==selected_scenario)]
+    
+    
+    variable_info = [{'variable_desc':'Change in Grassland Productivity',
                       'variable': 'Grassland productivity',
                       'color':'#009E73',
                       'mean_var':'fCover_annomoly_mean',
                       'std_var':'fCover_annomoly_std',
-                      'offset':-1},
+                      'y_labels':'percent',
+                      'offset':0},
                      {'variable_desc':'Change in Average Yearly Temperature',
                       'variable': 'Average yearly temperature',
                       'color':'#d5000d',
                       'mean_var':'tmean_annomoly_mean',
                       'std_var':'tmean_annomoly_std',
+                      'y_labels':'temp',
                       'offset':0},
                      {'variable_desc':'Change in Average Yearly Rain',
                       'variable': 'Average yearly rain',
                       'color':'#0072B2',
                       'mean_var':'pr_anomaly_mean',
                       'std_var':'pr_anomaly_std',
-                      'offset':1}]
+                      'y_labels':'percent',
+                      'offset':0}]
     
-    fig = make_subplots(rows=len(scenarios), cols=1, shared_xaxes=True,
-                        subplot_titles=scenario_titles)
+    variable_title_text = [v['variable_desc'] for v in variable_info]
     
-    # Add the 3 different markers, 1 for each variable, for each of the scenarios
-    for t in traces_to_add:
-        for scenario_i, s in enumerate(scenarios):
-            scenario_index = pixel_data.scenario==s
-            
-            # Tie togther the y + x info to generate a unique string
-            hover_attributes = zip(x_axis_labels,pixel_data[t['mean_var']][scenario_index])
-            hover_text = [generate_hover_str(t['variable'], *attr) for attr in hover_attributes]
-            
-            fig.append_trace(go.Scatter(x=pixel_data.year[scenario_index] + t['offset'], y=pixel_data[t['mean_var']][scenario_index],
-                                        error_y = dict(type='data',array=pixel_data[t['std_var']][scenario_index], width=0, thickness=3),
-                                        mode='markers', marker=dict(color=t['color'], size=10),
-                                        hovertext = hover_text, hoverinfo = "text",
-                                        name=t['variable_desc'] if s=='rcp26' else '',  # only the top gets legend entries
-                                        showlegend=True if s=='rcp26' else False),
-                             row=scenario_i+1,col=1)
+    fig = make_subplots(rows=len(variable_info), cols=1, shared_xaxes=True,
+                        subplot_titles=variable_title_text)
+    
+    # Add the data to each of the plots
+    for v_i, v in enumerate(variable_info):
+        # Tie togther the y + x info to generate a unique string
+        hover_attributes = zip(x_axis_labels,pixel_data[v['mean_var']])
+        hover_text = [generate_hover_str(v['variable'], *attr) for attr in hover_attributes]
+        
+        fig.append_trace(go.Scatter(x=pixel_data.year + v['offset'], y=pixel_data[v['mean_var']],
+                                    error_y = dict(type='data',array=pixel_data[v['std_var']], width=0, thickness=3),
+                                    mode='markers', marker=dict(color=v['color'], size=10),
+                                    hovertext = hover_text, hoverinfo = "text",
+                                    name=v['variable_desc'],  # only the top gets legend entries
+                                    showlegend=False),
+                         row=v_i+1,col=1)
+        
+        # Specifying axis labels
+        fig.update_xaxes(tickmode='array', tickangle=-45,
+                          tickvals = x_axis_values, ticktext = x_axis_labels,
+                          gridcolor='grey')
+        
+        if v['y_labels'] == 'percent':
+            fig.update_yaxes(tickmode='array', range=[min(y_axis_percent_values),max(y_axis_percent_values)],
+                              tickvals = y_axis_percent_values, ticktext = y_axis_percent_labels,
+                              gridcolor='grey', row=v_i+1, col=1)
+        elif v['y_labels'] == 'temp':
+            fig.update_yaxes(tickmode='array', range=[min(y_axis_temp_values),max(y_axis_temp_values)],
+                              tickvals = y_axis_temp_values, ticktext = y_axis_temp_labels,
+                              gridcolor='grey', row=v_i+1, col=1)
             
     
     # Horizontal lines 
@@ -307,16 +349,10 @@ def update_timeseries(clickData):
                 x0=x_axis_values.min()-10,x1=x_axis_values.max()+10,
                 y0=0,y1=0, 
                 line=dict(color='black',width=2))
-    for scenario in range(len(scenarios)):
-        fig.add_shape(hline, row=scenario+1,col=1)
+    for variable_i in range(len(variable_info)):
+        fig.add_shape(hline, row=variable_i+1,col=1)
     
-    # Specifying axis labels
-    fig.update_xaxes(tickmode='array', tickangle=-45,
-                     tickvals = x_axis_values, ticktext = x_axis_labels,
-                     gridcolor='grey')
-    fig.update_yaxes(tickmode='array', range=y_axis_range,
-                     tickvals = y_axis_values, ticktext = y_axis_labels,
-                     gridcolor='grey')
+
     
     fig.update_layout(legend=dict(x=0, y=-0.5))
     fig.update_layout(margin=dict(l=50, r=50, t=50, b=50))

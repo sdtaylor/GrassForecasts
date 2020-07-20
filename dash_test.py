@@ -47,9 +47,9 @@ phenograss_data = phenograss_data.groupby(['latitude','longitude','model','scena
 
 phenograss_data = pd.merge(phenograss_data, climatology, on=['latitude','longitude','model','scenario'], how='left')
 
-phenograss_data['fCover_annomoly'] = (phenograss_data.fCover / phenograss_data.fCover_climatology) - 1
-phenograss_data['tmean_annomoly']  = (phenograss_data.tmean  / phenograss_data.tmean_climatology)  - 1
-phenograss_data['pr_anomaly']      = (phenograss_data.pr     / phenograss_data.pr_climatology)     - 1
+phenograss_data['fCover_annomoly'] = (phenograss_data.fCover - phenograss_data.fCover_climatology) / phenograss_data.fCover_climatology
+phenograss_data['tmean_annomoly']  = (phenograss_data.tmean  - phenograss_data.tmean_climatology)
+phenograss_data['pr_anomaly']      = (phenograss_data.pr     - phenograss_data.pr_climatology)     / phenograss_data.pr_climatology
 
 
 

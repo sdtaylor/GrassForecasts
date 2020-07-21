@@ -54,4 +54,4 @@ annual_std.rename(columns={'fCover_annomoly':'fCover_annomoly_std','tmean_annomo
 
 phenograss_plot_data = pd.merge(annual_mean, annual_std, on=['latitude','longitude','year','scenario'] , how='left')
 
-phenograss_plot_data.to_csv('data/phenograss_timeseries_plot_data.csv')
+phenograss_plot_data.to_csv('webapp/data/phenograss_timeseries_plot_data.csv')

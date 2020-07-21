@@ -80,4 +80,4 @@ mask_df['longitude'] = np.floor(mask_df.longitude*2)/2
 mask_df = mask_df.groupby(['latitude','longitude']).agg({'ecoregion_mask':'max'}).reset_index()
 
 mask_df['ecoregion_mask'] = mask_df.ecoregion_mask.astype(bool)
-mask_df.to_csv('data/ecoregion_mask.csv', index=False)
+mask_df.to_csv('webapp/data/ecoregion_mask.csv', index=False)

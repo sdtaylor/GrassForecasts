@@ -13,7 +13,7 @@ import numpy as np
 import geopandas as gp
 import json
 
-from tools.etc import build_geojson_grid
+from map_tools import build_geojson_grid
 
 import site_text
                                   

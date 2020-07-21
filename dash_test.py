@@ -16,55 +16,21 @@ import json
 from tools.etc import build_geojson_grid
 
 import site_text
-#################################################                                    
-#################################################
-# Loading data for the map and figures
-#################################################                                    
+                                  
 #################################################
 
-climatology_years = range(1990,2011)
-display_years = range(1990,2100)
-year_resolution = 10 # final figure will display the average of this many years.
+import site_config
 
-debug=True
+climatology_years = site_config.climatology_years
+display_years = site_config.display_years
+year_resolution = site_config.year_resolution # final figure will display the average of this many years.
+
+debug=site_config.debug
+
 
 ################################
-climate_data = pd.read_csv('data/climate_annual_data.csv')
-phenograss_data = pd.read_csv('data/phenograss_downscaled_annual_integral.csv')
-phenograss_data = pd.merge(phenograss_data, climate_data, how='right', on=['latitude', 'longitude', 'model', 'scenario', 'year'])
 
-# TODO: quick check that all timeseries are intact, and all models/secnarios avaialble
-
-climatology = phenograss_data[phenograss_data.year.isin(climatology_years)]
-climatology = climatology.groupby(['latitude','longitude','model','scenario']).agg({'fCover':'mean','tmean':'mean','pr':'mean'}).reset_index()
-                                                                                      
-climatology.rename(columns={'fCover':'fCover_climatology','tmean':'tmean_climatology','pr':'pr_climatology'}, inplace=True)
-
-# subset to desired years and aggregate to larger temporal resolution
-phenograss_data = phenograss_data[phenograss_data.year.isin(display_years)]
-phenograss_data['year'] = phenograss_data.year - (phenograss_data.year % year_resolution)
-phenograss_data = phenograss_data.groupby(['latitude','longitude','model','scenario','year']).agg({'fCover':'mean','tmean':'mean','pr':'mean'}).reset_index()
-
-phenograss_data = pd.merge(phenograss_data, climatology, on=['latitude','longitude','model','scenario'], how='left')
-
-phenograss_data['fCover_annomoly'] = (phenograss_data.fCover - phenograss_data.fCover_climatology) / phenograss_data.fCover_climatology
-phenograss_data['tmean_annomoly']  = (phenograss_data.tmean  - phenograss_data.tmean_climatology)
-phenograss_data['pr_anomaly']      = (phenograss_data.pr     - phenograss_data.pr_climatology)     / phenograss_data.pr_climatology
-
-# Aggregate everything per decade.
-# This should not be so convoluted but omg doing groupby stuff in pandas is a total chore
-
-annual_mean = phenograss_data.groupby(['latitude','longitude','year','scenario']).agg({'fCover_annomoly':'mean',
-                                                                                       'tmean_annomoly':'mean',
-                                                                                       'pr_anomaly':'mean'}).reset_index()
-annual_mean.rename(columns={'fCover_annomoly':'fCover_annomoly_mean','tmean_annomoly':'tmean_annomoly_mean','pr_anomaly':'pr_anomaly_mean'}, inplace=True)
-
-annual_std = phenograss_data.groupby(['latitude','longitude','year','scenario']).agg({'fCover_annomoly':'std',
-                                                                                       'tmean_annomoly':'std',
-                                                                                       'pr_anomaly':'std'}).reset_index()
-annual_std.rename(columns={'fCover_annomoly':'fCover_annomoly_std','tmean_annomoly':'tmean_annomoly_std','pr_anomaly':'pr_anomaly_std'}, inplace=True)
-
-phenograss_plot_data = pd.merge(annual_mean, annual_std, on=['latitude','longitude','year','scenario'] , how='left')
+phenograss_plot_data = pd.read_csv('data/phenograss_timeseries_plot_data.csv')
 
 # Setup the USA grid. The mask contains the bounderies of the full grid, though
 # not every area will have data.
@@ -75,28 +41,20 @@ pixel_ids['pixel_id'] = pixel_ids.index
 
 us_grid = build_geojson_grid(mask, polygon_resolution=0.499)
 us_grid = json.loads(us_grid.to_json())
-n_features = len(us_grid['features'])
 [f.update(id=i) for i,f in enumerate(us_grid['features'])]
 # TODO: make feature numbers based on the pixel_id column in phenograss_data
 
 # Assign the pixel id's back to data
-phenograss_data = pd.merge(phenograss_data ,pixel_ids, on=['latitude','longitude'], how='left')
 phenograss_plot_data = pd.merge(phenograss_plot_data ,pixel_ids, on=['latitude','longitude'], how='left')
 
-# Mean climatology for each pixel, which varies slightly among models/scenarios
-map_data = phenograss_data[['latitude','longitude','pixel_id','fCover_climatology']].groupby(['latitude','longitude','pixel_id']).fCover_climatology.mean().reset_index()
+# Need a data.frame to fill in the dash map. the only thing it actually holds
+# is the hover text values.
+map_data = phenograss_plot_data[['latitude','longitude','pixel_id']].drop_duplicates()
 
 def map_hover_text(row):
     return '{lat} Latitude\n{lon} Longitude'.format(lat=row.latitude, lon=row.longitude)
 
 map_data['hover_text'] = map_data.apply(map_hover_text, axis=1)
-
-# clear these out to save on memory
-climate_data = None
-phenograss_data = None
-climatology = None
-annual_mean = None
-annual_std = None
 
 #################################################                                    
 #################################################

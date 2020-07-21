@@ -15,6 +15,7 @@ import json
 
 from tools.etc import build_geojson_grid
 
+import site_text
 #################################################                                    
 #################################################
 # Loading data for the map and figures
@@ -117,15 +118,8 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
 
 # Title text 
-page_title_text = html.Div([html.H1("Grassland Productivity Long Term Forecast")],
+page_title_text = html.Div([html.H1("Long Term Grassland Productivity Forecast")],
                                 style={'textAlign': "center", "padding-bottom": "30"})
-
-###############
-# The descriptions of the different RCPs
-rcp_text = dict(rcp26 = '[RCP 2.6](https://en.wikipedia.org/wiki/Representative_Concentration_Pathway#RCP_2.6) is the best case scenario in climate mitigation. Here global emissions start declining by 2020 and go to zero by 2100.',
-                rcp45 = '[RCP 4.5](https://en.wikipedia.org/wiki/Representative_Concentration_Pathway#RCP_4.5) represents an intermediate scenario, where global emissions peak around 2040 and then begin to decline.',
-                rcp60 = '[RCP 6](https://en.wikipedia.org/wiki/Representative_Concentration_Pathway#RCP_6) is similar to RCP 4.5, but the peak emissions happen around 2080.',
-                rcp85 = '[RCP 8.5](https://en.wikipedia.org/wiki/Representative_Concentration_Pathway#RCP_8.5) is the worst case scenario, where global emissions never decline. Currently this scenario is seen as [unlikely](https://www.doi.org/10.1038/d41586-020-00177-3).')
 
 
 ######################
@@ -199,10 +193,10 @@ app.layout = html.Div(id='page-container',
                                        html.Div([
                                            dcc.Tabs(id='timeseries-tabs', value='rcp26', children=[
                                                dcc.Tab(label='About', value='about'),
-                                               dcc.Tab(label='RCP26', value='rcp26'),
-                                               dcc.Tab(label='RCP45', value='rcp45'),
-                                               dcc.Tab(label='RCP60', value='rcp60'),
-                                               dcc.Tab(label='RCP85', value='rcp85')
+                                               dcc.Tab(label='RCP 2.6', value='rcp26'),
+                                               dcc.Tab(label='RCP 4.5', value='rcp45'),
+                                               dcc.Tab(label='RCP 6.0', value='rcp60'),
+                                               dcc.Tab(label='RCP 8.5', value='rcp85')
                                            ]),
                                            timeseries_container
                                            ])
@@ -277,9 +271,9 @@ for v in y_axis_temp_values:
     [dash.dependencies.Input('timeseries-tabs', 'value')])
 def update_tabtext(value):
     if value == 'about':
-        return d('about text. blah blah blah')
+        return d(site_text.about_tab_text)
     else:
-        return d(rcp_text[value])
+        return d(site_text.rcp_tab_text[value])
         
 @app.callback(
     dash.dependencies.Output('timeseries', 'children'),

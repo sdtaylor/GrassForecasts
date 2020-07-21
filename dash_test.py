@@ -116,17 +116,16 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 # server object used for wsgi integration
 server = app.server
 
-# Title text and lower description
+# Title text 
 page_title_text = html.Div([html.H1("Grassland Productivity Long Term Forecast")],
                                 style={'textAlign': "center", "padding-bottom": "30"})
 
-description_container = html.Div([
-                           dcc.Markdown(d('''
-                            Selected within the shaded areas of the map to view long-term forecasts for that location.                           
-                           ''')),
-                           html.Pre(id='page-description')
-                           ]
-                           )
+###############
+# The descriptions of the different RCPs
+rcp_text = dict(rcp26 = '[RCP 2.6](https://en.wikipedia.org/wiki/Representative_Concentration_Pathway#RCP_2.6) is the best case scenario in climate mitigation. Here global emissions start declining by 2020 and go to zero by 2100.',
+                rcp45 = '[RCP 4.5](https://en.wikipedia.org/wiki/Representative_Concentration_Pathway#RCP_4.5) represents an intermediate scenario, where global emissions peak around 2040 and then begin to decline.',
+                rcp60 = '[RCP 6](https://en.wikipedia.org/wiki/Representative_Concentration_Pathway#RCP_6) is similar to RCP 4.5, but the peak emissions happen around 2080.',
+                rcp85 = '[RCP 8.5](https://en.wikipedia.org/wiki/Representative_Concentration_Pathway#RCP_8.5) is the worst case scenario, where global emissions never decline. Currently this scenario is seen as [unlikely](https://www.doi.org/10.1038/d41586-020-00177-3).')
 
 
 ######################
@@ -164,9 +163,8 @@ map_container = html.Div(id='map-container',
 
 timeseries_container = html.Div(id='timeseries-container',
                            children = [
-                               html.P(id='timeseries-title',
-                                      children=''),
-                               dcc.Graph(id='timeseries')
+                               dcc.Markdown(id='rcp_description'),
+                               html.Div(id='timeseries')
                                ]
                            )
 
@@ -179,6 +177,9 @@ markdown_container = html.Div([
                            ]
                            )
 
+                                          
+                                          
+                                          
 #################################################                                    
 #################################################
 # Define layout of all components
@@ -190,7 +191,6 @@ app.layout = html.Div(id='page-container',
                           html.Div(id='header-text',
                                    children = [
                                        page_title_text,
-                                       description_container
                                        ],style={'columnCount':1}),
                           
                           html.Div(id='figure-container',
@@ -198,6 +198,7 @@ app.layout = html.Div(id='page-container',
                                        map_container,
                                        html.Div([
                                            dcc.Tabs(id='timeseries-tabs', value='rcp26', children=[
+                                               dcc.Tab(label='About', value='about'),
                                                dcc.Tab(label='RCP26', value='rcp26'),
                                                dcc.Tab(label='RCP45', value='rcp45'),
                                                dcc.Tab(label='RCP60', value='rcp60'),
@@ -269,12 +270,27 @@ for v in y_axis_temp_values:
     else:
         y_axis_temp_labels.append('No Change')
         
+
+
+@app.callback(
+    dash.dependencies.Output('rcp_description', 'children'),
+    [dash.dependencies.Input('timeseries-tabs', 'value')])
+def update_tabtext(value):
+    if value == 'about':
+        return d('about text. blah blah blah')
+    else:
+        return d(rcp_text[value])
         
 @app.callback(
-    dash.dependencies.Output('timeseries', 'figure'),
+    dash.dependencies.Output('timeseries', 'children'),
     [dash.dependencies.Input('map', 'clickData'),
      dash.dependencies.Input('timeseries-tabs', 'value')])
 def update_timeseries(clickData, value):
+    if value == 'about':
+        # For the about tab return a blank list here so the 'timeseries' div
+        # becomes empty
+        return []
+    
     print(clickData)
     try:
         selected_pixel = clickData['points'][0]['location']
@@ -358,7 +374,7 @@ def update_timeseries(clickData, value):
     fig.update_layout(margin=dict(l=50, r=50, t=50, b=50))
     fig.update_layout(title = '', height=600, plot_bgcolor='white')
 
-    return fig
+    return dcc.Graph(figure = fig)
 
 #################################################                                    
 #################################################

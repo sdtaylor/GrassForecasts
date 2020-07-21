@@ -37,7 +37,7 @@ for file_i, filepath in enumerate(phenograss_files):
     
     annual_integral_objs.append(annual_fCover)
 
-annual_integral = xr.combine_by_coords(annual_integral_objs)
+annual_integral = xr.merge(annual_integral_objs)
 
 # Combine all ecoregions into a single layer here. 
 #

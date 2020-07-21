@@ -74,6 +74,8 @@ page_title_text = html.Div([html.H1("Long Term Grassland Productivity Forecast")
                                 style={'textAlign': "center", "padding-bottom": "30"})
 
 
+app.title = 'Grassland Forecasts'
+
 ######################
 # The map
 map_trace = go.Choroplethmapbox(

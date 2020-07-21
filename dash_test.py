@@ -26,13 +26,12 @@ climatology_years = range(1990,2011)
 display_years = range(1990,2100)
 year_resolution = 10 # final figure will display the average of this many years.
 
+debug=True
+
 ################################
 climate_data = pd.read_csv('data/climate_annual_data.csv')
 phenograss_data = pd.read_csv('data/phenograss_downscaled_annual_integral.csv')
 phenograss_data = pd.merge(phenograss_data, climate_data, how='right', on=['latitude', 'longitude', 'model', 'scenario', 'year'])
-
-# clear this out to save memory
-climate_data = None
 
 # TODO: quick check that all timeseries are intact, and all models/secnarios avaialble
 
@@ -52,13 +51,7 @@ phenograss_data['fCover_annomoly'] = (phenograss_data.fCover - phenograss_data.f
 phenograss_data['tmean_annomoly']  = (phenograss_data.tmean  - phenograss_data.tmean_climatology)
 phenograss_data['pr_anomaly']      = (phenograss_data.pr     - phenograss_data.pr_climatology)     / phenograss_data.pr_climatology
 
-
-
-# The 5 year moving window average
-#running_avg = phenograss_data.groupby(['latitude','longitude','model','scenario']).rolling(window=5,min_periods=5,on='year').fCover_annomoly.mean().reset_index()
-#phenograss_data = phenograss_data.drop(columns='fCover_annomoly').merge(running_avg, how='left', on=['latitude','longitude','model','scenario','year'])
-
-# One data point per year/scenario, different models are averaged together for a mean/sd
+# Aggregate everything per decade.
 # This should not be so convoluted but omg doing groupby stuff in pandas is a total chore
 
 annual_mean = phenograss_data.groupby(['latitude','longitude','year','scenario']).agg({'fCover_annomoly':'mean',
@@ -72,7 +65,6 @@ annual_std = phenograss_data.groupby(['latitude','longitude','year','scenario'])
 annual_std.rename(columns={'fCover_annomoly':'fCover_annomoly_std','tmean_annomoly':'tmean_annomoly_std','pr_anomaly':'pr_anomaly_std'}, inplace=True)
 
 phenograss_plot_data = pd.merge(annual_mean, annual_std, on=['latitude','longitude','year','scenario'] , how='left')
-
 
 # Setup the USA grid. The mask contains the bounderies of the full grid, though
 # not every area will have data.
@@ -99,16 +91,18 @@ def map_hover_text(row):
 
 map_data['hover_text'] = map_data.apply(map_hover_text, axis=1)
 
+# clear these out to save on memory
+climate_data = None
+phenograss_data = None
+climatology = None
+annual_mean = None
+annual_std = None
+
 #################################################                                    
 #################################################
-# Define the different components
+# Setup the dash app components
 #################################################                                    
 #################################################
-
-selectable_years = phenograss_data.year.drop_duplicates()
-selectable_scenarios = phenograss_data.scenario.drop_duplicates().to_list()
-climate_models = phenograss_data.model.unique()
-
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -155,6 +149,9 @@ map_container = html.Div(id='map-container',
                                                  })
                                       ])
 
+# Timeseries container, also includes the markdown container for 
+# the text within the tabs.
+
 timeseries_container = html.Div(id='timeseries-container',
                            children = [
                                dcc.Markdown(id='rcp_description'),
@@ -162,23 +159,25 @@ timeseries_container = html.Div(id='timeseries-container',
                                ]
                            )
 
-markdown_container = html.Div([
-                           dcc.Markdown(d('''
-                             Map click output             
-                           
-                           ''')),
-                           html.Pre(id='click-output')
-                           ]
-                           )
+# This is a container displaying text from clicked values, only needed 
+# during development.
+if debug:
+    markdown_container = html.Div([
+                               dcc.Markdown(d('''
+                                 Map click output             
+                               
+                               ''')),
+                               html.Pre(id='click-output')
+                               ]
+                               )                 
+else:
+    markdown_container = html.Div()
 
                                           
-                                          
-                                          
-#################################################                                    
+                                         
 #################################################
-# Define layout of all components
+# Put the different components together in the layout.
 #################################################                                    
-#################################################
                            
 app.layout = html.Div(id='page-container',
                       children=[
@@ -191,7 +190,7 @@ app.layout = html.Div(id='page-container',
                                    children = [
                                        map_container,
                                        html.Div([
-                                           dcc.Tabs(id='timeseries-tabs', value='rcp26', children=[
+                                           dcc.Tabs(id='timeseries-tabs', value='about', children=[
                                                dcc.Tab(label='About', value='about'),
                                                dcc.Tab(label='RCP 2.6', value='rcp26'),
                                                dcc.Tab(label='RCP 4.5', value='rcp45'),
@@ -206,6 +205,67 @@ app.layout = html.Div(id='page-container',
                           ], style={'align-items':'left',
                                     'justify-content':'left'})
 
+    
+#################################################                                    
+#################################################
+# Interactions / callbacks
+#################################################                                    
+#################################################                        
+
+######################
+# This fills in the text at the bottom with the data from the clicked map
+# only with debug=True
+######################
+if debug:
+    @app.callback(
+        dash.dependencies.Output('click-output', 'children'),
+        [dash.dependencies.Input('map', 'clickData')])
+    def display_click_data(clickData):
+        return json.dumps(clickData, indent=2)
+
+######################
+# Fills in the text above the timeseries figures, and also the about tab
+######################
+@app.callback(
+    dash.dependencies.Output('rcp_description', 'children'),
+    [dash.dependencies.Input('timeseries-tabs', 'value')])
+def update_tabtext(value):
+    if value == 'about':
+        return d(site_text.about_tab_text)
+    else:
+        return d(site_text.rcp_tab_text[value])
+
+#######################
+# The primary timeseries plots
+######################
+
+# Setup the timeseries axis
+x_axis_values = np.unique(np.array(display_years) - (np.array(display_years) % year_resolution))
+x_axis_labels = ["{y}'s".format(y=y) for y in x_axis_values]
+
+# Make labels like -30%, +20%, and No change for 0
+y_axis_percent_values = [-0.2, -0.1, 0, 0.1, 0.2, 0.3]
+y_axis_percent_labels = []
+for v in y_axis_percent_values:
+    if v < 0:
+        y_axis_percent_labels.append(str(int(v*100))+'%')
+    elif v > 0:
+        y_axis_percent_labels.append('+'+str(int(v*100))+'%')
+    else:
+        y_axis_percent_labels.append('No Change')
+
+# For temerature make labels like +2 C, -1 C, and No Change
+y_axis_temp_values = [-1,0,1,2,3,4]
+y_axis_temp_labels = []
+for v in y_axis_temp_values:
+    if v < 0:
+        y_axis_temp_labels.append(str(v)+'° C')
+    elif v > 0:
+        y_axis_temp_labels.append('+'+str(v)+'° C')
+    else:
+        y_axis_temp_labels.append('No Change')
+
+# Special function for the timeseries hover text
 #TODO: need different wording for temperature
 def generate_hover_str(variable, timeperiod, percent_change):
     if timeperiod in ["1990's","2000's","2010's",]:
@@ -225,56 +285,9 @@ def generate_hover_str(variable, timeperiod, percent_change):
                  t = timeperiod)
     
     return s
-    
-#################################################                                    
-#################################################
-# Interactions / callbacks
-#################################################                                    
-#################################################                        
-                              
-@app.callback(
-    dash.dependencies.Output('click-output', 'children'),
-    [dash.dependencies.Input('map', 'clickData')])
-def display_click_data(clickData):
-    return json.dumps(clickData, indent=2)
 
-
-# Setup the timeseries axis
-x_axis_values = np.unique(np.array(display_years) - (np.array(display_years) % year_resolution))
-x_axis_labels = ["{y}'s".format(y=y) for y in x_axis_values]
-
-y_axis_percent_values = [-0.2, -0.1, 0, 0.1, 0.2, 0.3]
-# Make labels like -30%, +20%, No change for 0
-y_axis_percent_labels = []
-for v in y_axis_percent_values:
-    if v < 0:
-        y_axis_percent_labels.append(str(int(v*100))+'%')
-    elif v > 0:
-        y_axis_percent_labels.append('+'+str(int(v*100))+'%')
-    else:
-        y_axis_percent_labels.append('No Change')
-
-y_axis_temp_values = [-1,0,1,2,3,4]
-y_axis_temp_labels = []
-for v in y_axis_temp_values:
-    if v < 0:
-        y_axis_temp_labels.append(str(v)+'° C')
-    elif v > 0:
-        y_axis_temp_labels.append('+'+str(v)+'° C')
-    else:
-        y_axis_temp_labels.append('No Change')
-        
-
-
-@app.callback(
-    dash.dependencies.Output('rcp_description', 'children'),
-    [dash.dependencies.Input('timeseries-tabs', 'value')])
-def update_tabtext(value):
-    if value == 'about':
-        return d(site_text.about_tab_text)
-    else:
-        return d(site_text.rcp_tab_text[value])
-        
+# Primary callback which queries the location and scenario-tab, parses the
+# needed data, creates hover text, and builds the timeseries figures.
 @app.callback(
     dash.dependencies.Output('timeseries', 'children'),
     [dash.dependencies.Input('map', 'clickData'),
@@ -363,8 +376,7 @@ def update_timeseries(clickData, value):
         fig.add_shape(hline, row=variable_i+1,col=1)
     
 
-    
-    fig.update_layout(legend=dict(x=0, y=-0.5))
+    # fig.update_layout(legend=dict(x=0, y=-0.5)) # if a legend is ever added this will adjust the location.
     fig.update_layout(margin=dict(l=50, r=50, t=50, b=50))
     fig.update_layout(title = '', height=600, plot_bgcolor='white')
 
@@ -373,5 +385,5 @@ def update_timeseries(clickData, value):
 #################################################                                    
 #################################################
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=debug)
     

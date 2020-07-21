@@ -227,22 +227,27 @@ for v in y_axis_temp_values:
 
 # Special function for the timeseries hover text
 #TODO: need different wording for temperature
-def generate_hover_str(variable, timeperiod, percent_change):
+def generate_hover_str(variable, timeperiod, change_value):
     if timeperiod in ["1990's","2000's","2010's",]:
         # dont make claims about the past
         return ''
-
-    s = '{v} is expected to <br><b>{m}</b> {p}% by the {t} in this scenario'
     
-    if not np.isnan(percent_change):
-        change_verb = 'increase' if percent_change>0 else 'decrease'
+    if variable == 'Average yearly temperature':
+        change_text = '{}° C'.format(round(change_value,1))
+    else:
+        change_text = '{}%'.format(int(change_value*100))
+        
+    s = '{var} is expected to <br><b>{verb}</b> {value} by the {timeperiod} in this scenario'
+    
+    if not np.isnan(change_value):
+        change_verb = 'increase' if change_value>0 else 'decrease'
     else:
         return ''
     
-    s = s.format(v = variable,
-                 m = change_verb,
-                 p = int(percent_change*100),
-                 t = timeperiod)
+    s = s.format(var        = variable,
+                 verb       = change_verb,
+                 value      = change_text,
+                 timeperiod = timeperiod)
     
     return s
 
@@ -300,7 +305,7 @@ def update_timeseries(clickData, value):
     
     # Add the data to each of the plots
     for v_i, v in enumerate(variable_info):
-        # Tie togther the y + x info to generate a unique string
+        # Tie togther the y + x values to generate a unique string
         hover_attributes = zip(x_axis_labels,pixel_data[v['mean_var']])
         hover_text = [generate_hover_str(v['variable'], *attr) for attr in hover_attributes]
         

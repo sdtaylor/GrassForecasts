@@ -16,6 +16,12 @@ In areas which are mostly forests, the estimates represent the amount of product
 The amount of change in rain and temperature in any location due to climate change depends on how much greenhouse gas emissions are curtailed in the coming decades. The different RCP tabs represent those different scenarios. RCP 2.6 is an estimate of the best case scenario where global emissions are substantially reduced, while RCP 8.5 is the worst case scenario where emissions are not reduced at all.  
 RCP stands for Representative Concentration Pathway and more can be read about them [here](https://en.wikipedia.org/wiki/Representative_Concentration_Pathway).
 
+## ESA Conference 2020
+
+Thanks for viewing my poster & site! This is in testing stage before being officially launched.   
+Is there any other info you would like to see displayed? Do you feel this info would be useful to land-managers?  
+Send feedback [here](https://forms.gle/WYSgf4WNeRQ3yfDX6), or ping Shawn on [twitter](https://twitter.com/dataEcologist).
+
 ## Technical Details
 These forecasts use the Phenograss model derived in [Hufkins et al. 2016](https://doi.org/10.1038/nclimate2942), and optimized for grasslands in specific ecoregions. Climate data are from [downscaled CMIP5](https://gdo-dcp.ucllnl.org) projections. This interactive tool was build with [python dash](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwicyPnvkd_qAhXQVc0KHbL-A9IQFjAYegQIAhAB&url=https%3A%2F%2Fdash.plotly.com%2F&usg=AOvVaw0wNZrQX3xdcgdsG5iLfv2L) by [Shawn Taylor](https://twitter.com/dataEcologist) at the [USDA-ARS Jornada Experimental Range](https://jornada.nmsu.edu/).
 

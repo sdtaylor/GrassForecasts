@@ -63,6 +63,7 @@ def compile_cmip_model_data(climate_model_name,
                             chunk_sizes):
     """
     Put together a single xarray dataset for a specified cmip model/scenario.
+    Will include all derived variables (ie. ET, tmean, daylength) for PhenoGraass model.
     
     The time range will depend on the files available and passed inside
     climate_model_files.
@@ -121,7 +122,7 @@ def compile_cmip_model_data(climate_model_name,
 
 def rolling_tmean(ds, window_size=15):
     """ 
-    xarray as a moving window average method but it does not do lazy computations,
+    xarray has a moving window average method but it does not do lazy computations,
     so here is a custom one using bottleneck.move_mean
     """
     def move_mean_wrapper(tasmin, tasmax):
@@ -206,7 +207,7 @@ def apply_phenograss_dask_wrapper(model, ds):
     Apply the phenograss model (from GrasslandModels package)
     to an xarray dataset.
     Specifically this wraps the function around apply_ufunc,
-    which allows the process to be split on an HPC via
+    which allows the process to be parsed out on an HPC via
     dask and dask.distributed.
 
     Parameters

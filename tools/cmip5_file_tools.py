@@ -97,9 +97,9 @@ def get_cmip5_spec(models='all',scenarios='all'):
 
 def get_cmip5_files(model_spec, base_folder, get_historic=True):
     """
-    The cmip5 files are usually spread across numers netCDF files with different time
+    The cmip5 files are usually spread across numerous netCDF files with different time
     ranges (usually 10 year chunks) and variables (precip, tmin, tmax).
-    This gits a list of all of them to pass to xarray.open_mfrdataset().
+    This gets a list of all of them to pass to xarray.open_mfrdataset().
     Historic is the pre-2006 data which is not tied to any scenario.
     
     Used in combination with load_cmip5_spec()

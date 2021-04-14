@@ -27,8 +27,8 @@ phenograss_encoding = {'fCover':{'zlib':True,
 phenograss_output_folder = 'data/phenograss_nc_files/'
 
 ###############################################3
-# Dask/ceres config stuff stuff
-ceres_workers          = 100 # Number of slumr jobs started
+# Dask/ceres config stuff
+ceres_workers          = 100 # Number of slurm jobs started
 ceres_cores_per_worker = 1 # number of cores per job
 ceres_mem_per_worker   = '4GB' # memory for each job
 ceres_worker_walltime  = '48:00:00' # the walltime for each worker, HH:MM:SS
@@ -90,6 +90,8 @@ for ds_i, ds_info in enumerate(climate_model_info):
     
     for model_i, model in enumerate(phenograss_models):
         print('applying phenograss model {i}'.format(i=model_i))
+
+        # This compute command kicks off everything in dask, returning the final xarray dataset to the head machine.
         phenograss_ds = xarray_tools.apply_phenograss_dask_wrapper(model = model, ds=ds).compute() 
         
         # model metadata fitting_set looks like: 'ecoregion-vegtype_NWForests_GR'
